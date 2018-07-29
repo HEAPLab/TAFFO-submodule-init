@@ -1,6 +1,9 @@
 add_llvm_loadable_module(TaffoInitializer
   TaffoInitializerPass.cpp
   TaffoInitializerPass.h
+  FixedPointType.cpp
+  FixedPointType.h
+  Annotations.cpp
   
   PLUGIN_TOOL
   opt
