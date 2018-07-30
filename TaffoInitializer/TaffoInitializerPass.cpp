@@ -41,7 +41,43 @@ bool TaffoInitializer::runOnModule(Module &m)
   buildConversionQueueForRootValues(rootsa, vals);
   printConversionQueue(vals);
   
+  for (Value *v: vals) {
+    setMetadataOfValue(v);
+  }
+  
   return true;
+}
+
+
+void TaffoInitializer::setMetadataOfValue(Value *v)
+{
+  ValueInfo& vi = info[v];
+  LLVMContext& C = v->getContext();
+  
+  int realbm = vi.fixpType.isSigned ? -vi.fixpType.bitsAmt : vi.fixpType.bitsAmt;
+  
+  double min, max, epsilon;
+  epsilon = pow(2, -vi.fixpType.fracBitsAmt);
+  max = pow(2, vi.fixpType.bitsAmt) - epsilon;
+  min = vi.fixpType.isSigned ? -max : 0.0;
+  
+  Metadata *MDs[] = {
+    ConstantAsMetadata::get(ConstantInt::get(Type::getInt32Ty(C), realbm)),
+    ConstantAsMetadata::get(ConstantInt::get(Type::getInt32Ty(C), vi.fixpType.fracBitsAmt)),
+    ConstantAsMetadata::get(ConstantFP::get(Type::getDoubleTy(C), min)),
+    ConstantAsMetadata::get(ConstantFP::get(Type::getDoubleTy(C), max))};
+  MDNode *rangeMD = MDNode::get(C, MDs);
+
+  if (Instruction *inst = dyn_cast<Instruction>(v)) {
+    inst->setMetadata("errorprop.range", rangeMD);
+  } else if (GlobalObject *con = dyn_cast<GlobalObject>(v)) {
+    Metadata *errorMDs[] = {
+      ConstantAsMetadata::get(ConstantFP::get(Type::getDoubleTy(C), epsilon))};
+    MDNode *errorMD = MDNode::get(C, errorMDs);
+    Metadata *errorRangeMDs[] = {rangeMD, errorMD};
+    MDNode *errorRangeMD = MDNode::get(C, errorRangeMDs);
+    con->setMetadata("errorprop.globalre", errorRangeMD);
+  }
 }
 
 
