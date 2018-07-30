@@ -51,6 +51,7 @@ struct TaffoInitializer : public llvm::ModulePass {
   
   void buildConversionQueueForRootValues(const llvm::ArrayRef<llvm::Value*>& val, std::vector<llvm::Value*>& res);
   void printConversionQueue(std::vector<llvm::Value*> vals);
+  void removeAnnotationCalls(std::vector<llvm::Value*>& vals);
   
   void setMetadataOfValue(llvm::Value *v);
 };

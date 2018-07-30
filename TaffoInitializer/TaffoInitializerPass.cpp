@@ -1,6 +1,11 @@
 #include "llvm/Pass.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/InstIterator.h"
+#include "llvm/IR/InstrTypes.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
@@ -40,12 +45,33 @@ bool TaffoInitializer::runOnModule(Module &m)
   std::vector<Value*> vals;
   buildConversionQueueForRootValues(rootsa, vals);
   printConversionQueue(vals);
+  removeAnnotationCalls(vals);
   
   for (Value *v: vals) {
     setMetadataOfValue(v);
   }
   
   return true;
+}
+
+
+void TaffoInitializer::removeAnnotationCalls(std::vector<Value*>& q)
+{
+  for (auto i = q.begin(); i != q.end();) {
+    Value *v = *i;
+    
+    if (CallInst *anno = dyn_cast<CallInst>(v)) {
+      if (anno->getCalledFunction()) {
+        if (anno->getCalledFunction()->getName() == "llvm.var.annotation") {
+          anno->eraseFromParent();
+          i = q.erase(i);
+          continue;
+        }
+      }
+    }
+    
+    i++;
+  }
 }
 
 
