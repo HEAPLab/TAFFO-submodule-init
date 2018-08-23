@@ -23,6 +23,12 @@ STATISTIC(AnnotationCount, "Number of valid annotations found");
 
 namespace taffo {
 
+struct RangeError {
+  double Min = -42;
+  double Max = 42;
+  double Error;
+  bool HasError = false;
+};
 
 struct ValueInfo {
   bool isBacktrackingNode;
@@ -31,6 +37,7 @@ struct ValueInfo {
   FixedPointType fixpType;  // significant iff origType is a float or a pointer to a float
   int fixpTypeRootDistance = INT_MAX;
   llvm::Type *origType;
+  RangeError rangeError;
 };
 
 
