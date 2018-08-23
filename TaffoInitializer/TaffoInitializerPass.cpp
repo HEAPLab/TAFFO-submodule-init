@@ -14,6 +14,9 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
 #include "TaffoInitializerPass.h"
+#include <cmath>
+
+#include "MDUtils/Metadata.h"
 
 
 using namespace llvm;
@@ -78,34 +81,16 @@ void TaffoInitializer::removeAnnotationCalls(std::vector<Value*>& q)
 void TaffoInitializer::setMetadataOfValue(Value *v)
 {
   ValueInfo& vi = info[v];
-  LLVMContext& C = v->getContext();
 
-  int realbm = vi.fixpType.isSigned ? -vi.fixpType.bitsAmt : vi.fixpType.bitsAmt;
-
-  double min, max, epsilon;
-  // epsilon = pow(2, -vi.fixpType.fracBitsAmt);
-  // max = pow(2, vi.fixpType.bitsAmt) - epsilon;
-  // min = vi.fixpType.isSigned ? -max : 0.0;
-  epsilon = vi.rangeError.Error;
-  min = vi.rangeError.Min;
-  max = vi.rangeError.Max;
-
-  Metadata *MDs[] = {
-    ConstantAsMetadata::get(ConstantInt::get(Type::getInt32Ty(C), realbm)),
-    ConstantAsMetadata::get(ConstantInt::get(Type::getInt32Ty(C), vi.fixpType.fracBitsAmt)),
-    ConstantAsMetadata::get(ConstantFP::get(Type::getDoubleTy(C), min)),
-    ConstantAsMetadata::get(ConstantFP::get(Type::getDoubleTy(C), max))};
-  MDNode *rangeMD = MDNode::get(C, MDs);
+  ErrorProp::FPType fpty(vi.fixpType.bitsAmt, vi.fixpType.fracBitsAmt, vi.fixpType.isSigned);
+  ErrorProp::Range range(vi.rangeError.Min, vi.rangeError.Max);
+  ErrorProp::InputInfo II(&fpty, &range,
+			  (std::isnan(vi.rangeError.Error) ? nullptr : &vi.rangeError.Error));
 
   if (Instruction *inst = dyn_cast<Instruction>(v)) {
-    inst->setMetadata("errorprop.range", rangeMD);
+    ErrorProp::MetadataManager::setInputInfoMetadata(*inst, II);
   } else if (GlobalObject *con = dyn_cast<GlobalObject>(v)) {
-    Metadata *errorMDs[] = {
-      ConstantAsMetadata::get(ConstantFP::get(Type::getDoubleTy(C), epsilon))};
-    MDNode *errorMD = MDNode::get(C, errorMDs);
-    Metadata *errorRangeMDs[] = {rangeMD, errorMD};
-    MDNode *errorRangeMD = MDNode::get(C, errorRangeMDs);
-    con->setMetadata("errorprop.globalre", errorRangeMD);
+    ErrorProp::MetadataManager::setInputInfoMetadata(*con, II);
   }
 }
 

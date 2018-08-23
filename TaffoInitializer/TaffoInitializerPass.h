@@ -1,3 +1,4 @@
+#include <limits>
 #include "llvm/Pass.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Constants.h"
@@ -24,10 +25,9 @@ STATISTIC(AnnotationCount, "Number of valid annotations found");
 namespace taffo {
 
 struct RangeError {
-  double Min = -42;
-  double Max = 42;
-  double Error;
-  bool HasError = false;
+  double Min = std::numeric_limits<double>::quiet_NaN();
+  double Max = std::numeric_limits<double>::quiet_NaN();
+  double Error = std::numeric_limits<double>::quiet_NaN();
 };
 
 struct ValueInfo {

@@ -1,6 +1,5 @@
 #include <sstream>
 #include <iostream>
-#include <limits>
 #include "llvm/Pass.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Function.h"
@@ -133,15 +132,7 @@ bool TaffoInitializer::parseAnnotation(SmallPtrSetImpl<Value *>& variables, Cons
     strstm >> Error;
     if (!strstm.fail()) {
       vi.rangeError.Error = Error;
-      vi.rangeError.HasError = true;
-    } else {
-      vi.rangeError.Error = std::numeric_limits<double>::quiet_NaN();
-      vi.rangeError.HasError = false;
     }
-  } else {
-    vi.rangeError.Error = std::numeric_limits<double>::quiet_NaN();
-    vi.rangeError.Min = std::numeric_limits<double>::quiet_NaN();
-    vi.rangeError.Max = std::numeric_limits<double>::quiet_NaN();
   }
 
   if (Instruction *toconv = dyn_cast<Instruction>(instr)) {

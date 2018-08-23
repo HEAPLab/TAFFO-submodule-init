@@ -14,7 +14,7 @@ int main(int argc, char *argv[])
 {
   float tmp;
   char buffer[256];
-  float __attribute__((annotate("no_float 8 24 unsigned -1000 1000"))) stack[32];
+  float __attribute__((annotate("no_float 8 24 unsigned -1000 1000 1.0e-5"))) stack[32];
   int sp = 0;
   
   while (1) {
