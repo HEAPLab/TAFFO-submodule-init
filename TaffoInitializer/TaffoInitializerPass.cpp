@@ -48,7 +48,7 @@ bool TaffoInitializer::runOnModule(Module &m)
   std::vector<Value*> vals;
   buildConversionQueueForRootValues(rootsa, vals);
   printConversionQueue(vals);
-  removeAnnotationCalls(vals);
+  // removeAnnotationCalls(vals);
   
   for (Value *v: vals) {
     setMetadataOfValue(v);
