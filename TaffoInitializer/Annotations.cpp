@@ -94,29 +94,34 @@ bool TaffoInitializer::parseAnnotation(SmallPtrSetImpl<Value *>& variables, Cons
 
   StringRef annstr = annoStr->getAsString();
   std::istringstream strstm(annstr.substr(0, annstr.size()-1));
-  
+
+  bool readNumBits = true;
   std::string head;
   strstm >> head;
   if (head == "no_float")
     vi.isBacktrackingNode = false;
   else if (head == "force_no_float")
     vi.isBacktrackingNode = true;
+  else if (head == "range")
+    readNumBits = false;
   else
     return false;
-  
-  int intbits, fracbits;
-  strstm >> intbits >> fracbits;
-  if (!strstm.fail()) {
-    vi.fixpTypeRootDistance = 0;
-    vi.fixpType.bitsAmt = intbits + fracbits;
-    vi.fixpType.fracBitsAmt = fracbits;
-    
-    std::string signedflg;
-    strstm >> signedflg;
-    if (!strstm.fail() && signedflg == "unsigned") {
-      vi.fixpType.isSigned = false;
-    } else {
-      vi.fixpType.isSigned = true;
+
+  if (readNumBits) {
+    int intbits, fracbits;
+    strstm >> intbits >> fracbits;
+    if (!strstm.fail()) {
+      vi.fixpTypeRootDistance = 0;
+      vi.fixpType.bitsAmt = intbits + fracbits;
+      vi.fixpType.fracBitsAmt = fracbits;
+
+      std::string signedflg;
+      strstm >> signedflg;
+      if (!strstm.fail() && signedflg == "unsigned") {
+	vi.fixpType.isSigned = false;
+      } else {
+	vi.fixpType.isSigned = true;
+      }
     }
   }
 
@@ -126,11 +131,13 @@ bool TaffoInitializer::parseAnnotation(SmallPtrSetImpl<Value *>& variables, Cons
   if (!strstm.fail()) {
     vi.rangeError.Min = Min;
     vi.rangeError.Max = Max;
+    errs() << "Range found: [" << Min << ", " << Max << "]\n";
 
     // Look for initial error
     double Error;
     strstm >> Error;
     if (!strstm.fail()) {
+      errs() << "Initial error found " << Error << "\n";
       vi.rangeError.Error = Error;
     }
   }
