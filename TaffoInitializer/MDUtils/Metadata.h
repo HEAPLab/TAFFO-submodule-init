@@ -34,6 +34,7 @@
 #define WRONG_CMP_METADATA     "taffo.wrongcmptol"
 #define MAX_REC_METADATA       "taffo.maxrec"
 #define UNROLL_COUNT_METADATA  "taffo.unroll"
+#define START_FUN_METADATA     "taffo.start"
 
 namespace ErrorProp {
 
@@ -107,6 +108,9 @@ public:
 
   /// Get the computed comparison error info from metadata attached to I.
   static std::unique_ptr<CmpErrorInfo> retrieveCmpError(const Instruction &I);
+
+  static void setStartingPoint(Function &F);
+  static bool isStartingPoint(const Function &F);
 
 protected:
   DenseMap<MDNode *, std::unique_ptr<TType> > TTypes;

@@ -9,6 +9,7 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/raw_ostream.h"
 #include "TaffoInitializerPass.h"
+#include "MDUtils/Metadata.h"
 
 using namespace llvm;
 using namespace taffo;
@@ -48,6 +49,7 @@ void TaffoInitializer::readGlobalAnnotations(Module &m, SmallPtrSetImpl<Value *>
 
 void TaffoInitializer::readLocalAnnotations(Function &f, SmallPtrSetImpl<Value *>& variables)
 {
+  bool found = false;
   for (inst_iterator iIt = inst_begin(&f), iItEnd = inst_end(&f); iIt != iItEnd; iIt++) {
     CallInst *call = dyn_cast<CallInst>(&(*iIt));
     if (!call)
@@ -58,8 +60,11 @@ void TaffoInitializer::readLocalAnnotations(Function &f, SmallPtrSetImpl<Value *
 
     if (call->getCalledFunction()->getName() == "llvm.var.annotation") {
       parseAnnotation(variables, cast<ConstantExpr>(iIt->getOperand(1)), iIt->getOperand(0));
+      found = true;
     }
   }
+  if (found)
+    ErrorProp::MetadataManager::setStartingPoint(f);
 }
 
 

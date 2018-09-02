@@ -145,6 +145,15 @@ retrieveCmpError(const Instruction &I) {
   return CmpErrorInfo::createFromMetadata(I.getMetadata(WRONG_CMP_METADATA));
 }
 
+void MetadataManager::setStartingPoint(Function &F) {
+  Metadata *MD[] = {ConstantAsMetadata::get(ConstantInt::getTrue(F.getContext()))};
+  F.setMetadata(START_FUN_METADATA, MDNode::get(F.getContext(), MD));
+}
+
+bool MetadataManager::isStartingPoint(const Function &F) {
+  return F.getMetadata(START_FUN_METADATA) != nullptr;
+}
+
 TType *MetadataManager::retrieveTType(MDNode *MDN) {
   if (MDN == nullptr)
     return nullptr;
