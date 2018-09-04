@@ -31,7 +31,7 @@ struct RangeError {
 };
 
 struct ValueInfo {
-  bool isBacktrackingNode;
+  bool isBacktrackingNode = false;
   bool isRoot;
   llvm::SmallPtrSet<llvm::Value*, 5> roots;
   FixedPointType fixpType;  // significant iff origType is a float or a pointer to a float

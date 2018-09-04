@@ -31,7 +31,6 @@ static RegisterPass<TaffoInitializer> X(
   false /* does not affect the CFG */,
   true /* Optimization Pass (sorta) */);
 
-
 bool TaffoInitializer::runOnModule(Module &m)
 {
   DEBUG_WITH_TYPE(DEBUG_ANNOTATION, printAnnotatedObj(m));
@@ -48,12 +47,13 @@ bool TaffoInitializer::runOnModule(Module &m)
   std::vector<Value*> vals;
   buildConversionQueueForRootValues(rootsa, vals);
   printConversionQueue(vals);
-  // removeAnnotationCalls(vals);
-  
+
+  //    removeAnnotationCalls(vals);
+
   for (Value *v: vals) {
     setMetadataOfValue(v);
   }
-  
+
   return true;
 }
 
@@ -82,15 +82,20 @@ void TaffoInitializer::setMetadataOfValue(Value *v)
 {
   ValueInfo& vi = info[v];
 
+  if (std::isnan(vi.rangeError.Min) || std::isnan(vi.rangeError.Max))
+    return;
+
   ErrorProp::FPType fpty(vi.fixpType.bitsAmt, vi.fixpType.fracBitsAmt, vi.fixpType.isSigned);
   ErrorProp::Range range(vi.rangeError.Min, vi.rangeError.Max);
   ErrorProp::InputInfo II(&fpty, &range,
 			  (std::isnan(vi.rangeError.Error) ? nullptr : &vi.rangeError.Error));
 
   if (Instruction *inst = dyn_cast<Instruction>(v)) {
-    ErrorProp::MetadataManager::setInputInfoMetadata(*inst, II);
+    if (!inst->getMetadata(INPUT_INFO_METADATA))
+      ErrorProp::MetadataManager::setInputInfoMetadata(*inst, II);
   } else if (GlobalObject *con = dyn_cast<GlobalObject>(v)) {
-    ErrorProp::MetadataManager::setInputInfoMetadata(*con, II);
+    if (!con->getMetadata(INPUT_INFO_METADATA))
+      ErrorProp::MetadataManager::setInputInfoMetadata(*con, II);
   }
 }
 
@@ -108,12 +113,11 @@ void TaffoInitializer::buildConversionQueueForRootValues(
     ValueInfo &vinfo = info[v];
     ValueInfo &uinfo = info[u];
     uinfo.origType = u->getType();
-    if (uinfo.fixpTypeRootDistance > std::max(vinfo.fixpTypeRootDistance, vinfo.fixpTypeRootDistance+1)) {
-      uinfo.fixpType = vinfo.fixpType;
-      uinfo.rangeError.Min = vinfo.rangeError.Min;
-      uinfo.rangeError.Max = vinfo.rangeError.Max;
-      uinfo.fixpTypeRootDistance = std::max(vinfo.fixpTypeRootDistance, vinfo.fixpTypeRootDistance+1);
-    }
+    uinfo.fixpType = vinfo.fixpType;
+    uinfo.rangeError.Min = vinfo.rangeError.Min;
+    uinfo.rangeError.Max = vinfo.rangeError.Max;
+    uinfo.rangeError.Error = vinfo.rangeError.Error;
+    uinfo.fixpTypeRootDistance = std::max(vinfo.fixpTypeRootDistance, vinfo.fixpTypeRootDistance+1);
   };
 
   size_t prevQueueSize = 0;
