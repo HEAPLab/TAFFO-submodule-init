@@ -140,6 +140,7 @@ bool TaffoInitializer::parseAnnotation(SmallPtrSetImpl<Value *>& variables,
   double Min, Max;
   strstm >> Min >> Max;
   if (!strstm.fail()) {
+    vi.fixpTypeRootDistance = 0;
     vi.rangeError.Min = Min;
     vi.rangeError.Max = Max;
     errs() << "Range found: [" << Min << ", " << Max << "]\n";

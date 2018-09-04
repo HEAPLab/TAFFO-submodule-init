@@ -114,11 +114,13 @@ void TaffoInitializer::buildConversionQueueForRootValues(
     ValueInfo &vinfo = info[v];
     ValueInfo &uinfo = info[u];
     uinfo.origType = u->getType();
-    uinfo.fixpType = vinfo.fixpType;
-    uinfo.rangeError.Min = vinfo.rangeError.Min;
-    uinfo.rangeError.Max = vinfo.rangeError.Max;
-    uinfo.rangeError.Error = vinfo.rangeError.Error;
-    uinfo.fixpTypeRootDistance = std::max(vinfo.fixpTypeRootDistance, vinfo.fixpTypeRootDistance+1);
+    if (uinfo.fixpTypeRootDistance > std::max(vinfo.fixpTypeRootDistance, vinfo.fixpTypeRootDistance+1)) {
+      uinfo.fixpType = vinfo.fixpType;
+      uinfo.rangeError.Min = vinfo.rangeError.Min;
+      uinfo.rangeError.Max = vinfo.rangeError.Max;
+      uinfo.rangeError.Error = vinfo.rangeError.Error;
+      uinfo.fixpTypeRootDistance = std::max(vinfo.fixpTypeRootDistance, vinfo.fixpTypeRootDistance+1);
+    }
   };
 
   size_t prevQueueSize = 0;
