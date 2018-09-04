@@ -15,7 +15,8 @@ using namespace llvm;
 using namespace taffo;
 
 
-void TaffoInitializer::readGlobalAnnotations(Module &m, SmallPtrSetImpl<Value *>& variables, bool functionAnnotation)
+void TaffoInitializer::readGlobalAnnotations(Module &m, SmallPtrSetImpl<Value *>& variables,
+					     bool functionAnnotation)
 {
   GlobalVariable *globAnnos = m.getGlobalVariable("llvm.global.annotations");
 
@@ -47,7 +48,8 @@ void TaffoInitializer::readGlobalAnnotations(Module &m, SmallPtrSetImpl<Value *>
 }
 
 
-void TaffoInitializer::readLocalAnnotations(Function &f, SmallPtrSetImpl<Value *>& variables)
+void TaffoInitializer::readLocalAnnotations(Function &f, SmallPtrSetImpl<Value *>& variables,
+					    std::vector<Value *>* rangeOnly)
 {
   bool found = false;
   for (inst_iterator iIt = inst_begin(&f), iItEnd = inst_end(&f); iIt != iItEnd; iIt++) {
@@ -57,7 +59,10 @@ void TaffoInitializer::readLocalAnnotations(Function &f, SmallPtrSetImpl<Value *
 	continue;
 
       if (call->getCalledFunction()->getName() == "llvm.var.annotation") {
-	parseAnnotation(variables, cast<ConstantExpr>(iIt->getOperand(1)), iIt->getOperand(0));
+	if (parseAnnotation(variables, cast<ConstantExpr>(iIt->getOperand(1)), iIt->getOperand(0))
+	    && rangeOnly)
+	  rangeOnly->push_back(call);
+
 	found = true;
       }
     }
@@ -67,11 +72,12 @@ void TaffoInitializer::readLocalAnnotations(Function &f, SmallPtrSetImpl<Value *
 }
 
 
-void TaffoInitializer::readAllLocalAnnotations(Module &m, SmallPtrSetImpl<Value *>& res)
+void TaffoInitializer::readAllLocalAnnotations(Module &m, SmallPtrSetImpl<Value *>& res,
+					       std::vector<Value *>& rangeOnly)
 {
   for (Function &f: m.functions()) {
     SmallPtrSet<Value*, 32> t;
-    readLocalAnnotations(f, t);
+    readLocalAnnotations(f, t, &rangeOnly);
     res.insert(t.begin(), t.end());
 
     /* Otherwise dce pass ignore the function
@@ -80,8 +86,9 @@ void TaffoInitializer::readAllLocalAnnotations(Module &m, SmallPtrSetImpl<Value 
   }
 }
 
-
-bool TaffoInitializer::parseAnnotation(SmallPtrSetImpl<Value *>& variables, ConstantExpr *annoPtrInst, Value *instr)
+// Return true if the annotation contained only range data (no fixed point type data)
+bool TaffoInitializer::parseAnnotation(SmallPtrSetImpl<Value *>& variables,
+				       ConstantExpr *annoPtrInst, Value *instr)
 {
   ValueInfo vi;
 
@@ -154,7 +161,7 @@ bool TaffoInitializer::parseAnnotation(SmallPtrSetImpl<Value *>& variables, Cons
     info[instr] = vi;
   }
 
-  return true;
+  return !readNumBits;
 }
 
 

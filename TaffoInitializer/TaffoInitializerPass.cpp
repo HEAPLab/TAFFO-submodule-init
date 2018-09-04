@@ -35,9 +35,10 @@ bool TaffoInitializer::runOnModule(Module &m)
 {
   DEBUG_WITH_TYPE(DEBUG_ANNOTATION, printAnnotatedObj(m));
 
+  std::vector<llvm::Value *> rangeOnlyAnnotations;
   llvm::SmallPtrSet<llvm::Value *, 32> local;
   llvm::SmallPtrSet<llvm::Value *, 32> global;
-  readAllLocalAnnotations(m, local);
+  readAllLocalAnnotations(m, local, rangeOnlyAnnotations);
   readGlobalAnnotations(m, global);
   
   std::vector<Value*> rootsa(local.begin(), local.end());
@@ -48,11 +49,11 @@ bool TaffoInitializer::runOnModule(Module &m)
   buildConversionQueueForRootValues(rootsa, vals);
   printConversionQueue(vals);
 
-  //    removeAnnotationCalls(vals);
-
   for (Value *v: vals) {
     setMetadataOfValue(v);
   }
+
+  removeAnnotationCalls(rangeOnlyAnnotations);
 
   return true;
 }
