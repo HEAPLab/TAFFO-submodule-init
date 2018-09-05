@@ -92,9 +92,15 @@ void TaffoInitializer::setMetadataOfValue(Value *v)
 			  (std::isnan(vi.rangeError.Error) ? nullptr : &vi.rangeError.Error));
 
   if (Instruction *inst = dyn_cast<Instruction>(v)) {
+    if (vi.target.hasValue())
+      ErrorProp::MetadataManager::setTargetMetadata(*inst, vi.target.getValue());
+
     if (!inst->getMetadata(INPUT_INFO_METADATA))
       ErrorProp::MetadataManager::setInputInfoMetadata(*inst, II);
   } else if (GlobalObject *con = dyn_cast<GlobalObject>(v)) {
+    if (vi.target.hasValue())
+      ErrorProp::MetadataManager::setTargetMetadata(*con, vi.target.getValue());
+
     if (!con->getMetadata(INPUT_INFO_METADATA))
       ErrorProp::MetadataManager::setInputInfoMetadata(*con, II);
   }
@@ -119,6 +125,7 @@ void TaffoInitializer::buildConversionQueueForRootValues(
       uinfo.rangeError.Min = vinfo.rangeError.Min;
       uinfo.rangeError.Max = vinfo.rangeError.Max;
       uinfo.rangeError.Error = vinfo.rangeError.Error;
+      uinfo.target = vinfo.target;
       uinfo.fixpTypeRootDistance = std::max(vinfo.fixpTypeRootDistance, vinfo.fixpTypeRootDistance+1);
     }
   };

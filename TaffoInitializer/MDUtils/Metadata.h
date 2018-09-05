@@ -35,6 +35,7 @@
 #define MAX_REC_METADATA       "taffo.maxrec"
 #define UNROLL_COUNT_METADATA  "taffo.unroll"
 #define START_FUN_METADATA     "taffo.start"
+#define TARGET_METADATA        "taffo.target"
 
 namespace ErrorProp {
 
@@ -111,6 +112,15 @@ public:
 
   static void setStartingPoint(Function &F);
   static bool isStartingPoint(const Function &F);
+
+  /// Mark instruction/global variable I/V as a target with name `Name'.
+  static void setTargetMetadata(Instruction &I, StringRef Name);
+  static void setTargetMetadata(GlobalObject &V, StringRef Name);
+
+  /// Get the name of the target of this instruction/global variable,
+  /// if it is a target. Returns an empty Optional if it is not a target.
+  static Optional<StringRef> retrieveTargetMetadata(const Instruction &I);
+  static Optional<StringRef> retrieveTargetMetadata(const GlobalObject &V);
 
 protected:
   DenseMap<MDNode *, std::unique_ptr<TType> > TTypes;

@@ -154,6 +154,34 @@ bool MetadataManager::isStartingPoint(const Function &F) {
   return F.getMetadata(START_FUN_METADATA) != nullptr;
 }
 
+void MetadataManager::setTargetMetadata(Instruction &I, StringRef Name) {
+  MDNode *TMD = MDNode::get(I.getContext(), MDString::get(I.getContext(), Name));
+  I.setMetadata(TARGET_METADATA, TMD);
+}
+
+Optional<StringRef> MetadataManager::retrieveTargetMetadata(const Instruction &I) {
+  MDNode *MD = I.getMetadata(TARGET_METADATA);
+  if (MD == nullptr)
+    return NoneType();
+
+  MDString *MDName = cast<MDString>(MD->getOperand(0U).get());
+  return MDName->getString();
+}
+
+void MetadataManager::setTargetMetadata(GlobalObject &I, StringRef Name) {
+  MDNode *TMD = MDNode::get(I.getContext(), MDString::get(I.getContext(), Name));
+  I.setMetadata(TARGET_METADATA, TMD);
+}
+
+Optional<StringRef> MetadataManager::retrieveTargetMetadata(const GlobalObject &I) {
+  MDNode *MD = I.getMetadata(TARGET_METADATA);
+  if (MD == nullptr)
+    return NoneType();
+
+  MDString *MDName = cast<MDString>(MD->getOperand(0U).get());
+  return MDName->getString();
+}
+
 TType *MetadataManager::retrieveTType(MDNode *MDN) {
   if (MDN == nullptr)
     return nullptr;

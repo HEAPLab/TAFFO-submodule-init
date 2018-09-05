@@ -109,6 +109,10 @@ bool TaffoInitializer::parseAnnotation(SmallPtrSetImpl<Value *>& variables,
   bool readNumBits = true;
   std::string head;
   strstm >> head;
+  if (head == "target") {
+    vi.target = instr->getName();
+    strstm >> head;
+  }
   if (head == "no_float")
     vi.isBacktrackingNode = false;
   else if (head == "force_no_float")

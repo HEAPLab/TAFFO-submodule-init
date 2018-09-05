@@ -4,6 +4,7 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/ADT/Statistic.h"
@@ -38,6 +39,7 @@ struct ValueInfo {
   int fixpTypeRootDistance = INT_MAX;
   llvm::Type *origType;
   RangeError rangeError;
+  llvm::Optional<llvm::StringRef> target;
 };
 
 
