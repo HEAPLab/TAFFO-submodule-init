@@ -16,3 +16,4 @@ where the parts enclosed in square brackets are optional, those in (... | ...) a
 - `<Min>` and `<Max>` are the bounds of the range of the annotated variable. They are double floating point values.
 - `<InitialError>` is the initial error of this variable.
 - If `range` is specified, the TAFFO conversion pass will not convert this variable to a fixed point type, but this pass will attach to it the range and error info needed by TAFFO Error Propagator.
+  These annotations are removed by this pass.
