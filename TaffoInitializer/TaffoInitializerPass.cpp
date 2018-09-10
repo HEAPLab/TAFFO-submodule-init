@@ -117,7 +117,7 @@ void TaffoInitializer::buildConversionQueueForRootValues(
   }
   
   auto completeInfo = [this](Value *v, Value *u) {
-    ValueInfo &vinfo = info[v];
+    ValueInfo vinfo = info[v];
     ValueInfo &uinfo = info[u];
     uinfo.origType = u->getType();
     if (uinfo.fixpTypeRootDistance > std::max(vinfo.fixpTypeRootDistance, vinfo.fixpTypeRootDistance+1)) {

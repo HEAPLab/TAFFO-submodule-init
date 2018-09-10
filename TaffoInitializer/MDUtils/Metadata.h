@@ -110,11 +110,14 @@ public:
   /// Get the computed comparison error info from metadata attached to I.
   static std::unique_ptr<CmpErrorInfo> retrieveCmpError(const Instruction &I);
 
+  /// Set this function as a starting point for error analysis.
   static void setStartingPoint(Function &F);
   static bool isStartingPoint(const Function &F);
 
   /// Mark instruction/global variable I/V as a target with name `Name'.
   static void setTargetMetadata(Instruction &I, StringRef Name);
+
+  /// Returns true if F has been marked as a starting point for error analysis.
   static void setTargetMetadata(GlobalObject &V, StringRef Name);
 
   /// Get the name of the target of this instruction/global variable,
