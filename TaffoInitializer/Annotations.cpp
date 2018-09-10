@@ -59,11 +59,9 @@ void TaffoInitializer::readLocalAnnotations(Function &f, SmallPtrSetImpl<Value *
 	continue;
 
       if (call->getCalledFunction()->getName() == "llvm.var.annotation") {
-	if (parseAnnotation(variables, cast<ConstantExpr>(iIt->getOperand(1)), iIt->getOperand(0))
+	if (parseAnnotation(variables, cast<ConstantExpr>(iIt->getOperand(1)), iIt->getOperand(0), &found)
 	    && rangeOnly)
 	  rangeOnly->push_back(call);
-
-	found = true;
       }
     }
   }
@@ -88,7 +86,8 @@ void TaffoInitializer::readAllLocalAnnotations(Module &m, SmallPtrSetImpl<Value 
 
 // Return true if the annotation contained only range data (no fixed point type data)
 bool TaffoInitializer::parseAnnotation(SmallPtrSetImpl<Value *>& variables,
-				       ConstantExpr *annoPtrInst, Value *instr)
+				       ConstantExpr *annoPtrInst, Value *instr,
+				       bool *isTarget)
 {
   ValueInfo vi;
 
@@ -112,6 +111,8 @@ bool TaffoInitializer::parseAnnotation(SmallPtrSetImpl<Value *>& variables,
   if (head == "target") {
     vi.target = instr->getName();
     strstm >> head;
+    if (isTarget)
+      *isTarget = true;
   }
   if (head == "no_float")
     vi.isBacktrackingNode = false;
