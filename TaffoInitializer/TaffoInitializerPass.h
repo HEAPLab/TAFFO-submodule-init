@@ -63,6 +63,7 @@ struct TaffoInitializer : public llvm::ModulePass {
   void removeAnnotationCalls(std::vector<llvm::Value*>& vals);
   
   void setMetadataOfValue(llvm::Value *v);
+  void setFunctionArgsMetadata(llvm::Module &m);
 };
 
 

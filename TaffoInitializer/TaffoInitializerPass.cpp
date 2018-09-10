@@ -52,6 +52,7 @@ bool TaffoInitializer::runOnModule(Module &m)
   for (Value *v: vals) {
     setMetadataOfValue(v);
   }
+  setFunctionArgsMetadata(m);
 
   removeAnnotationCalls(rangeOnlyAnnotations);
 
@@ -106,6 +107,56 @@ void TaffoInitializer::setMetadataOfValue(Value *v)
   }
 }
 
+void TaffoInitializer::setFunctionArgsMetadata(Module &m)
+{
+  std::vector<ErrorProp::FPType> tyVec;
+  std::vector<ErrorProp::Range> ranVec;
+  std::vector<ErrorProp::InputInfo> iiVec;
+  std::vector<ErrorProp::InputInfo *> iiPVec;
+  for (Function &f : m.functions()) {
+    DEBUG(dbgs() << "Processing function " << f.getName() << "\n");
+    tyVec.reserve(f.arg_size());
+    ranVec.reserve(f.arg_size());
+    iiVec.reserve(f.arg_size());
+    iiPVec.reserve(f.arg_size());
+
+    for (const Argument &a : f.args()) {
+      DEBUG(dbgs() << "Processing arg " << a << "\n");
+      ErrorProp::InputInfo ii(nullptr, nullptr, nullptr);
+      for (const Use &u : a.uses()) {
+	const Value *sv = u.getUser();
+	DEBUG(dbgs() << "Processing use " << *sv << "\n");
+	if (isa<StoreInst>(sv)) {
+	  auto fVI = info.find(sv);
+	  if (fVI != info.end()) {
+	    DEBUG(dbgs() << "Info found.\n");
+	    ValueInfo &vi = fVI->second;
+	    tyVec.push_back(ErrorProp::FPType(vi.fixpType.bitsAmt,
+					      vi.fixpType.fracBitsAmt,
+					      vi.fixpType.isSigned));
+	    ii.IType = &tyVec.back();
+
+	    ranVec.push_back(ErrorProp::Range(vi.rangeError.Min, vi.rangeError.Max));
+	    ii.IRange = &ranVec.back();
+
+	    ii.IError = std::isnan(vi.rangeError.Error) ? nullptr : &vi.rangeError.Error;
+
+	    break;
+	  }
+	}
+      }
+      iiVec.push_back(ii);
+      iiPVec.push_back(&iiVec.back());
+    }
+
+    ErrorProp::MetadataManager::setArgumentInputInfoMetadata(f, iiPVec);
+
+    tyVec.clear();
+    ranVec.clear();
+    iiVec.clear();
+    iiPVec.clear();
+  }
+}
 
 void TaffoInitializer::buildConversionQueueForRootValues(
   const ArrayRef<Value*>& val,
