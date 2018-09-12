@@ -108,8 +108,8 @@ bool TaffoInitializer::parseAnnotation(SmallPtrSetImpl<Value *>& variables,
   bool readNumBits = true;
   std::string head;
   strstm >> head;
-  if (head == "target") {
-    vi.target = instr->getName();
+  if (head.find("target:") == 0) {
+    vi.target = head.substr(7); // strlen("target:") == 7
     strstm >> head;
     if (isTarget)
       *isTarget = true;

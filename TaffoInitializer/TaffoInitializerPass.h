@@ -39,7 +39,7 @@ struct ValueInfo {
   int fixpTypeRootDistance = INT_MAX;
   llvm::Type *origType;
   RangeError rangeError;
-  llvm::Optional<llvm::StringRef> target;
+  llvm::Optional<std::string> target;
 };
 
 
