@@ -47,7 +47,7 @@ bool TaffoInitializer::runOnModule(Module &m)
 
   std::vector<Value*> vals;
   buildConversionQueueForRootValues(rootsa, vals);
-  printConversionQueue(vals);
+  DEBUG(printConversionQueue(vals));
 
   for (Value *v: vals) {
     setMetadataOfValue(v);
@@ -183,7 +183,7 @@ void TaffoInitializer::buildConversionQueueForRootValues(
 
   size_t prevQueueSize = 0;
   while (prevQueueSize < queue.size()) {
-    dbgs() << "***** buildConversionQueueForRootValues iter " << prevQueueSize << " < " << queue.size() << "\n";
+    DEBUG(dbgs() << "***** buildConversionQueueForRootValues iter " << prevQueueSize << " < " << queue.size() << "\n");
     prevQueueSize = queue.size();
 
     size_t next = 0;
