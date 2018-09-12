@@ -36,6 +36,8 @@ public:
 
   virtual MDNode *toMetadata(LLVMContext &C) const = 0;
 
+  virtual ~TType() = default;
+
   static std::unique_ptr<TType> createFromMetadata(MDNode *MDN);
 
   TTypeKind getKind() const { return Kind; }
