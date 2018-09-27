@@ -9,7 +9,7 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/raw_ostream.h"
 #include "TaffoInitializerPass.h"
-#include "MDUtils/Metadata.h"
+#include "Metadata.h"
 
 using namespace llvm;
 using namespace taffo;
@@ -66,7 +66,7 @@ void TaffoInitializer::readLocalAnnotations(Function &f, SmallPtrSetImpl<Value *
     }
   }
   if (found)
-    ErrorProp::MetadataManager::setStartingPoint(f);
+    mdutils::MetadataManager::setStartingPoint(f);
 }
 
 

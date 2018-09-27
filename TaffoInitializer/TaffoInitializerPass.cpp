@@ -16,7 +16,7 @@
 #include "TaffoInitializerPass.h"
 #include <cmath>
 
-#include "MDUtils/Metadata.h"
+#include "Metadata.h"
 
 
 using namespace llvm;
@@ -87,32 +87,32 @@ void TaffoInitializer::setMetadataOfValue(Value *v)
   if (std::isnan(vi.rangeError.Min) || std::isnan(vi.rangeError.Max))
     return;
 
-  ErrorProp::FPType fpty(vi.fixpType.bitsAmt, vi.fixpType.fracBitsAmt, vi.fixpType.isSigned);
-  ErrorProp::Range range(vi.rangeError.Min, vi.rangeError.Max);
-  ErrorProp::InputInfo II(&fpty, &range,
+  mdutils::FPType fpty(vi.fixpType.bitsAmt, vi.fixpType.fracBitsAmt, vi.fixpType.isSigned);
+  mdutils::Range range(vi.rangeError.Min, vi.rangeError.Max);
+  mdutils::InputInfo II(&fpty, &range,
 			  (std::isnan(vi.rangeError.Error) ? nullptr : &vi.rangeError.Error));
 
   if (Instruction *inst = dyn_cast<Instruction>(v)) {
     if (vi.target.hasValue())
-      ErrorProp::MetadataManager::setTargetMetadata(*inst, vi.target.getValue());
+      mdutils::MetadataManager::setTargetMetadata(*inst, vi.target.getValue());
 
     if (!inst->getMetadata(INPUT_INFO_METADATA))
-      ErrorProp::MetadataManager::setInputInfoMetadata(*inst, II);
+      mdutils::MetadataManager::setInputInfoMetadata(*inst, II);
   } else if (GlobalObject *con = dyn_cast<GlobalObject>(v)) {
     if (vi.target.hasValue())
-      ErrorProp::MetadataManager::setTargetMetadata(*con, vi.target.getValue());
+      mdutils::MetadataManager::setTargetMetadata(*con, vi.target.getValue());
 
     if (!con->getMetadata(INPUT_INFO_METADATA))
-      ErrorProp::MetadataManager::setInputInfoMetadata(*con, II);
+      mdutils::MetadataManager::setInputInfoMetadata(*con, II);
   }
 }
 
 void TaffoInitializer::setFunctionArgsMetadata(Module &m)
 {
-  std::vector<ErrorProp::FPType> tyVec;
-  std::vector<ErrorProp::Range> ranVec;
-  std::vector<ErrorProp::InputInfo> iiVec;
-  std::vector<ErrorProp::InputInfo *> iiPVec;
+  std::vector<mdutils::FPType> tyVec;
+  std::vector<mdutils::Range> ranVec;
+  std::vector<mdutils::InputInfo> iiVec;
+  std::vector<mdutils::InputInfo *> iiPVec;
   for (Function &f : m.functions()) {
     DEBUG(dbgs() << "Processing function " << f.getName() << "\n");
     tyVec.reserve(f.arg_size());
@@ -122,34 +122,34 @@ void TaffoInitializer::setFunctionArgsMetadata(Module &m)
 
     for (const Argument &a : f.args()) {
       DEBUG(dbgs() << "Processing arg " << a << "\n");
-      ErrorProp::InputInfo ii(nullptr, nullptr, nullptr);
+      mdutils::InputInfo ii(nullptr, nullptr, nullptr);
       for (const Use &u : a.uses()) {
-	const Value *sv = u.getUser();
-	DEBUG(dbgs() << "Processing use " << *sv << "\n");
-	if (isa<StoreInst>(sv)) {
-	  auto fVI = info.find(sv);
-	  if (fVI != info.end()) {
-	    DEBUG(dbgs() << "Info found.\n");
-	    ValueInfo &vi = fVI->second;
-	    tyVec.push_back(ErrorProp::FPType(vi.fixpType.bitsAmt,
-					      vi.fixpType.fracBitsAmt,
-					      vi.fixpType.isSigned));
-	    ii.IType = &tyVec.back();
+        const Value *sv = u.getUser();
+        DEBUG(dbgs() << "Processing use " << *sv << "\n");
+        if (isa<StoreInst>(sv)) {
+          auto fVI = info.find(sv);
+          if (fVI != info.end()) {
+            DEBUG(dbgs() << "Info found.\n");
+            ValueInfo &vi = fVI->second;
+            tyVec.push_back(mdutils::FPType(vi.fixpType.bitsAmt,
+                                              vi.fixpType.fracBitsAmt,
+                                              vi.fixpType.isSigned));
+            ii.IType = &tyVec.back();
 
-	    ranVec.push_back(ErrorProp::Range(vi.rangeError.Min, vi.rangeError.Max));
-	    ii.IRange = &ranVec.back();
+            ranVec.push_back(mdutils::Range(vi.rangeError.Min, vi.rangeError.Max));
+            ii.IRange = &ranVec.back();
 
-	    ii.IError = std::isnan(vi.rangeError.Error) ? nullptr : &vi.rangeError.Error;
+            ii.IError = std::isnan(vi.rangeError.Error) ? nullptr : &vi.rangeError.Error;
 
-	    break;
-	  }
-	}
+            break;
+          }
+        }
       }
       iiVec.push_back(ii);
       iiPVec.push_back(&iiVec.back());
     }
 
-    ErrorProp::MetadataManager::setArgumentInputInfoMetadata(f, iiPVec);
+    mdutils::MetadataManager::setArgumentInputInfoMetadata(f, iiPVec);
 
     tyVec.clear();
     ranVec.clear();
