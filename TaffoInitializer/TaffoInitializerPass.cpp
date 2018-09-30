@@ -213,7 +213,7 @@ void TaffoInitializer::buildConversionQueueForRootValues(
       }
       next++;
     }
-    
+
     next = queue.size();
     for (next = queue.size(); next != 0; next--) {
       Value *v = queue.at(next-1);
@@ -223,19 +223,36 @@ void TaffoInitializer::buildConversionQueueForRootValues(
       Instruction *inst = dyn_cast<Instruction>(v);
       if (!inst)
         continue;
-      
+
       #ifdef LOG_BACKTRACK
       dbgs() << "BACKTRACK ";
       v->print(dbgs());
       dbgs() << "\n";
       #endif
-      
+
       for (Value *u: inst->operands()) {
+        if (!isa<User>(u) && !isa<Argument>(u)) {
+          #ifdef LOG_BACKTRACK
+          dbgs() << " - " ;
+          u->printAsOperand(dbgs());
+          dbgs() << " not a User or an Argument\n";
+          #endif
+          continue;
+        }
+
+        if (isa<Function>(u) || isa<BlockAddress>(u)) {
+          #ifdef LOG_BACKTRACK
+          dbgs() << " - " ;
+          u->printAsOperand(dbgs());
+          dbgs() << " is a function/block address\n";
+          #endif
+          continue;
+        }
+
         #ifdef LOG_BACKTRACK
-        dbgs() << " - ";
-        u->print(dbgs());
+        dbgs() << " - " << *u;
         #endif
-        
+
         if (!isFloatType(u->getType())) {
           #ifdef LOG_BACKTRACK
           dbgs() << " not a float\n";
@@ -243,9 +260,9 @@ void TaffoInitializer::buildConversionQueueForRootValues(
           continue;
         }
         valueInfo(v)->isRoot = false;
-        
+
         valueInfo(u)->isBacktrackingNode = true;
-        
+
         bool alreadyIn = false;
         for (int i=0; i<queue.size() && !alreadyIn;) {
           if (queue[i] == u) {
@@ -269,7 +286,7 @@ void TaffoInitializer::buildConversionQueueForRootValues(
           dbgs() << " already in\n";
           #endif
         }
-        
+
         completeInfo(v, u);
       }
     }
@@ -307,11 +324,11 @@ void TaffoInitializer::printConversionQueue(std::vector<Value*> vals)
         rootv->print(errs());
         errs() << ' ';
       }
-                    errs() << "] ";
-                    val->print(errs());
-                    errs() << "\n";
-                  }
-                  errs() << "\n\n";
+      errs() << "] ";
+      val->print(errs());
+      errs() << "\n";
+    }
+    errs() << "\n\n";
   } else {
     errs() << "not printing the conversion queue because it exceeds 1000 items";
   }
