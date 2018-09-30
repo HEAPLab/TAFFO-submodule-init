@@ -45,8 +45,9 @@ struct ValueInfo {
 
 struct TaffoInitializer : public llvm::ModulePass {
   static char ID;
-  
-  llvm::DenseMap<llvm::Value *, ValueInfo> info;
+
+  /* to not be accessed directly, use valueInfo() */
+  llvm::DenseMap<llvm::Value *, std::shared_ptr<ValueInfo>> info;
   
   TaffoInitializer(): ModulePass(ID) { }
   bool runOnModule(llvm::Module &M) override;
@@ -64,6 +65,16 @@ struct TaffoInitializer : public llvm::ModulePass {
   
   void setMetadataOfValue(llvm::Value *v);
   void setFunctionArgsMetadata(llvm::Module &m);
+
+  std::shared_ptr<ValueInfo> valueInfo(llvm::Value *val) {
+    auto vi = info.find(val);
+    if (vi == info.end()) {
+      info[val] = std::make_shared<ValueInfo>(ValueInfo());
+      return info[val];
+    } else {
+      return vi->getSecond();
+    }
+  };
 };
 
 

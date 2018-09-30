@@ -82,7 +82,7 @@ void TaffoInitializer::removeAnnotationCalls(std::vector<Value*>& q)
 
 void TaffoInitializer::setMetadataOfValue(Value *v)
 {
-  ValueInfo& vi = info[v];
+  ValueInfo& vi = *valueInfo(v);
 
   if (std::isnan(vi.rangeError.Min) || std::isnan(vi.rangeError.Max))
     return;
@@ -130,7 +130,7 @@ void TaffoInitializer::setFunctionArgsMetadata(Module &m)
           auto fVI = info.find(sv);
           if (fVI != info.end()) {
             DEBUG(dbgs() << "Info found.\n");
-            ValueInfo &vi = fVI->second;
+            ValueInfo &vi = *fVI->second;
             tyVec.push_back(mdutils::FPType(vi.fixpType.bitsAmt,
                                               vi.fixpType.fracBitsAmt,
                                               vi.fixpType.isSigned));
@@ -158,18 +158,19 @@ void TaffoInitializer::setFunctionArgsMetadata(Module &m)
   }
 }
 
+
 void TaffoInitializer::buildConversionQueueForRootValues(
   const ArrayRef<Value*>& val,
   std::vector<Value*>& queue)
 {
   queue.insert(queue.begin(), val.begin(), val.end());
   for (auto i = queue.begin(); i != queue.end(); i++) {
-    info[*i].isRoot = true;
+    valueInfo(*i)->isRoot = true;
   }
-  
+
   auto completeInfo = [this](Value *v, Value *u) {
-    ValueInfo vinfo = info[v];
-    ValueInfo &uinfo = info[u];
+    ValueInfo vinfo = *valueInfo(v);
+    ValueInfo &uinfo = *valueInfo(u);
     uinfo.origType = u->getType();
     if (uinfo.fixpTypeRootDistance > std::max(vinfo.fixpTypeRootDistance, vinfo.fixpTypeRootDistance+1)) {
       uinfo.fixpType = vinfo.fixpType;
@@ -183,7 +184,7 @@ void TaffoInitializer::buildConversionQueueForRootValues(
 
   size_t prevQueueSize = 0;
   while (prevQueueSize < queue.size()) {
-    DEBUG(dbgs() << "***** buildConversionQueueForRootValues iter " << prevQueueSize << " < " << queue.size() << "\n");
+    DEBUG(dbgs() << "***** buildConversionQueueForRootValues iter " << prevQueueSize << " < " << queue.size() << "\n";);
     prevQueueSize = queue.size();
 
     size_t next = 0;
@@ -191,6 +192,7 @@ void TaffoInitializer::buildConversionQueueForRootValues(
       Value *v = queue.at(next);
 
       for (auto *u: v->users()) {
+
         /* Insert u at the end of the queue.
          * If u exists already in the queue, *move* it to the end instead. */
         for (int i=0; i<queue.size();) {
@@ -203,9 +205,9 @@ void TaffoInitializer::buildConversionQueueForRootValues(
           }
         }
         queue.push_back(u);
-        
-        if (info[v].isBacktrackingNode) {
-          info[u].isBacktrackingNode = true;
+
+        if (valueInfo(v)->isBacktrackingNode) {
+          valueInfo(u)->isBacktrackingNode = true;
         }
         completeInfo(v, u);
       }
@@ -215,9 +217,9 @@ void TaffoInitializer::buildConversionQueueForRootValues(
     next = queue.size();
     for (next = queue.size(); next != 0; next--) {
       Value *v = queue.at(next-1);
-      if (!(info[v].isBacktrackingNode))
+      if (!(valueInfo(v)->isBacktrackingNode))
         continue;
-      
+
       Instruction *inst = dyn_cast<Instruction>(v);
       if (!inst)
         continue;
@@ -240,9 +242,9 @@ void TaffoInitializer::buildConversionQueueForRootValues(
           #endif
           continue;
         }
-        info[v].isRoot = false;
+        valueInfo(v)->isRoot = false;
         
-        info[u].isBacktrackingNode = true;
+        valueInfo(u)->isBacktrackingNode = true;
         
         bool alreadyIn = false;
         for (int i=0; i<queue.size() && !alreadyIn;) {
@@ -256,7 +258,7 @@ void TaffoInitializer::buildConversionQueueForRootValues(
           }
         }
         if (!alreadyIn) {
-          info[u].isRoot = true;
+          valueInfo(u)->isRoot = true;
           #ifdef LOG_BACKTRACK
           dbgs() << "  enqueued\n";
           #endif
@@ -272,22 +274,22 @@ void TaffoInitializer::buildConversionQueueForRootValues(
       }
     }
   }
-  
+
   for (Value *v: queue) {
-    if (info[v].isRoot) {
-      info[v].roots = {v};
+    if (valueInfo(v)->isRoot) {
+      valueInfo(v)->roots = {v};
     }
-    
-    SmallPtrSet<Value*, 5> newroots = info[v].roots;
+
+    SmallPtrSet<Value*, 5> newroots = valueInfo(v)->roots;
     for (Value *u: v->users()) {
       auto oldrootsi = info.find(u);
-      if (oldrootsi == info.end())
+      if (!info.count(u))
         continue;
-      
-      auto oldroots = oldrootsi->getSecond().roots;
+
+      auto oldroots = oldrootsi->getSecond()->roots;
       SmallPtrSet<Value*, 5> merge(newroots);
       merge.insert(oldroots.begin(), oldroots.end());
-      info[u].roots = merge;
+      valueInfo(u)->roots = merge;
     }
   }
 }
@@ -297,14 +299,14 @@ void TaffoInitializer::printConversionQueue(std::vector<Value*> vals)
 {
   if (vals.size() < 1000) {
     errs() << "conversion queue:\n";
-                  for (Value *val: vals) {
-                    errs() << "bt=" << info[val].isBacktrackingNode << " ";
-                    errs() << info[val].fixpType << " ";
-                    errs() << "[";
-                    for (Value *rootv: info[val].roots) {
-                      rootv->print(errs());
-                      errs() << ' ';
-                    }
+    for (Value *val: vals) {
+      errs() << "bt=" << valueInfo(val)->isBacktrackingNode << " ";
+      errs() << valueInfo(val)->fixpType << " ";
+      errs() << "[";
+      for (Value *rootv: valueInfo(val)->roots) {
+        rootv->print(errs());
+        errs() << ' ';
+      }
                     errs() << "] ";
                     val->print(errs());
                     errs() << "\n";
