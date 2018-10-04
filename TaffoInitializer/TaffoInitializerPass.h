@@ -1,4 +1,5 @@
 #include <limits>
+#include <llvm/IR/CallSite.h>
 #include "llvm/Pass.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Constants.h"
@@ -60,11 +61,18 @@ struct TaffoInitializer : public llvm::ModulePass {
   void printAnnotatedObj(llvm::Module &m);
   
   void buildConversionQueueForRootValues(const llvm::ArrayRef<llvm::Value*>& val, std::vector<llvm::Value*>& res);
+  void generateFunctionSpace(std::vector<llvm::Value *> &vals, llvm::SmallPtrSetImpl<llvm::Value *> &global, llvm::SmallPtrSet<llvm::Function *, 10> &callTrace);
+  llvm::Function *createFunctionAndQueue(llvm::CallSite *call, llvm::SmallPtrSetImpl<llvm::Value *> &global, std::vector<llvm::Value*> &convQueue);
   void printConversionQueue(std::vector<llvm::Value*> vals);
   void removeAnnotationCalls(std::vector<llvm::Value*>& vals);
   
   void setMetadataOfValue(llvm::Value *v);
   void setFunctionArgsMetadata(llvm::Module &m);
+
+  bool isSpecialFunction(const llvm::Function* f) {
+    llvm::StringRef fName = f->getName();
+    return fName.startswith("llvm.") || f->getBasicBlockList().empty();
+  };
 
   std::shared_ptr<ValueInfo> valueInfo(llvm::Value *val) {
     auto vi = info.find(val);
@@ -75,6 +83,10 @@ struct TaffoInitializer : public llvm::ModulePass {
       return vi->getSecond();
     }
   };
+
+  bool hasInfo(llvm::Value *val) {
+    return info.find(val) != info.end();
+};
 };
 
 

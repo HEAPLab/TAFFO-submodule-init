@@ -26,7 +26,8 @@ struct FixedPointType {
   FixedPointType(bool s, int f, int b) : isSigned(s), fracBitsAmt(f), bitsAmt(b) {};
   FixedPointType(llvm::Type *llvmtype, bool signd = true);
   llvm::Type *toLLVMType(llvm::LLVMContext& ctxt) const;
-  
+  std::string toString() const;
+
   bool operator==(const FixedPointType& rhs) const {
     return this->isSigned == rhs.isSigned &&
       this->fracBitsAmt == rhs.fracBitsAmt &&

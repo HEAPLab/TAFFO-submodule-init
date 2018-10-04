@@ -13,6 +13,8 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
+#include <llvm/Transforms/Utils/ValueMapper.h>
+#include <llvm/Transforms/Utils/Cloning.h>
 #include "TaffoInitializerPass.h"
 #include <cmath>
 
@@ -47,15 +49,17 @@ bool TaffoInitializer::runOnModule(Module &m)
 
   std::vector<Value*> vals;
   buildConversionQueueForRootValues(rootsa, vals);
-  DEBUG(printConversionQueue(vals));
-
   for (Value *v: vals) {
     setMetadataOfValue(v);
   }
+  removeAnnotationCalls(vals);
+
+  SmallPtrSet<Function*, 10> callTrace;
+  generateFunctionSpace(vals, global, callTrace);
+
+  DEBUG(printConversionQueue(vals));
   setFunctionArgsMetadata(m);
-
-  removeAnnotationCalls(rangeOnlyAnnotations);
-
+  
   return true;
 }
 
@@ -83,10 +87,7 @@ void TaffoInitializer::removeAnnotationCalls(std::vector<Value*>& q)
 void TaffoInitializer::setMetadataOfValue(Value *v)
 {
   ValueInfo& vi = *valueInfo(v);
-
-  if (std::isnan(vi.rangeError.Min) || std::isnan(vi.rangeError.Max))
-    return;
-
+  
   mdutils::FPType fpty(vi.fixpType.bitsAmt, vi.fixpType.fracBitsAmt, vi.fixpType.isSigned);
   mdutils::Range range(vi.rangeError.Min, vi.rangeError.Max);
   mdutils::InputInfo II(&fpty, &range,
@@ -309,6 +310,113 @@ void TaffoInitializer::buildConversionQueueForRootValues(
       valueInfo(u)->roots = merge;
     }
   }
+}
+
+
+void TaffoInitializer::generateFunctionSpace(std::vector<Value *> &vals, SmallPtrSetImpl<llvm::Value *> &global,
+                                             SmallPtrSet<Function *, 10> &callTrace)
+{
+  std::vector<CallSite*> calls;
+
+  //filter
+  for (Value *v : vals) {
+    if (isa<CallInst>(v) || isa<InvokeInst>(v)) {
+      CallSite *call = new CallSite(v);
+      calls.push_back(call);
+    }
+  }
+
+  for (CallSite *call : calls) {
+    Function *oldF = call->getCalledFunction();
+    assert(oldF && "bitcasted function pointers and such not handled atm");
+    if(isSpecialFunction(oldF))
+      continue;
+
+    std::vector<Value*> newVals;
+    Function *newF = createFunctionAndQueue(call, global, newVals);
+    call->setCalledFunction(newF);
+
+    //Attach metadata
+    MDNode *newFRef = MDNode::get(call->getInstruction()->getContext(),ValueAsMetadata::get(newF));
+    MDNode *oldFRef = MDNode::get(call->getInstruction()->getContext(),ValueAsMetadata::get(oldF));
+
+    call->getInstruction()->setMetadata(ORIGINAL_FUN_METADATA, oldFRef);
+    if (MDNode *cloned = oldF->getMetadata(CLONED_FUN_METADATA)) {
+      cloned = cloned->concatenate(cloned, newFRef);
+      oldF->setMetadata(CLONED_FUN_METADATA, cloned);
+    } else {
+      oldF->setMetadata(CLONED_FUN_METADATA, newFRef);
+    }
+    newF->setMetadata(CLONED_FUN_METADATA, NULL);
+    newF->setMetadata(SOURCE_FUN_METADATA, oldFRef);
+    for (Value *v : newVals) {
+      setMetadataOfValue(v);
+    }
+
+    if (callTrace.count(oldF)) {
+      continue;
+    }
+    callTrace.insert(oldF);
+    generateFunctionSpace(newVals, global, callTrace);
+    callTrace.erase(oldF);
+  }
+}
+
+
+Function* TaffoInitializer::createFunctionAndQueue(CallSite *call, SmallPtrSetImpl<Value *> &global,
+    std::vector<Value *> &convQueue)
+{
+  Function *oldF = call->getCalledFunction();
+  Function *newF = Function::Create(
+      oldF->getFunctionType(), oldF->getLinkage(),
+      oldF->getName(), oldF->getParent());
+
+  ValueToValueMapTy mapArgs; // Create Val2Val mapping and clone function
+  Function::arg_iterator newIt = newF->arg_begin();
+  Function::arg_iterator oldIt = oldF->arg_begin();
+  for (; oldIt != oldF->arg_end() ; oldIt++, newIt++) {
+    newIt->setName(oldIt->getName());
+    mapArgs.insert(std::make_pair(oldIt, newIt));
+  }
+  SmallVector<ReturnInst*,100> returns;
+  CloneFunctionInto(newF, oldF, mapArgs, true, returns);
+
+  std::vector<Value*> roots; //propagate fixp conversion
+  oldIt = oldF->arg_begin();
+  newIt = newF->arg_begin();
+  for (int i=0; oldIt != oldF->arg_end() ; oldIt++, newIt++,i++) {
+    if (hasInfo(call->getInstruction()->getOperand(i))) {
+      FixedPointType fixtype = valueInfo(call->getInstruction()->getOperand(i))->fixpType;
+      RangeError rng = valueInfo(call->getInstruction()->getOperand(i))->rangeError;
+      int dist = valueInfo(call->getInstruction()->getOperand(i))->fixpTypeRootDistance;
+
+      // Mark the alloca used for the argument (in O0 opt lvl)
+      valueInfo(newIt->user_begin()->getOperand(1))->fixpType = fixtype;
+      valueInfo(newIt->user_begin()->getOperand(1))->rangeError = rng;
+      valueInfo(newIt->user_begin()->getOperand(1))->fixpTypeRootDistance = dist+1;
+      roots.push_back(newIt->user_begin()->getOperand(1));
+
+      // Mark the argument itself
+      valueInfo(newIt)->fixpType = fixtype;
+      valueInfo(newIt)->rangeError = rng;
+      valueInfo(newIt)->fixpTypeRootDistance = dist;
+    }
+  }
+
+  std::vector<Value*> tmpVals;
+  roots.insert(roots.begin(), global.begin(), global.end());
+  SmallPtrSet<Value*, 32> localFix;
+  readLocalAnnotations(*newF, localFix);
+  roots.insert(roots.begin(), localFix.begin(), localFix.end());
+  buildConversionQueueForRootValues(roots, tmpVals);
+  for (Value *val : tmpVals){
+    if (Instruction *inst = dyn_cast<Instruction>(val)) {
+      if (inst->getFunction()==newF){
+        convQueue.push_back(val);
+      }
+    }
+  }
+  return newF;
 }
 
 
