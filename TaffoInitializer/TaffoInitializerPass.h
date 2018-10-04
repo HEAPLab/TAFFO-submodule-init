@@ -54,8 +54,8 @@ struct TaffoInitializer : public llvm::ModulePass {
   bool runOnModule(llvm::Module &M) override;
   
   void readGlobalAnnotations(llvm::Module &m, llvm::SmallPtrSetImpl<llvm::Value *>& res, bool functionAnnotation = false);
-  void readLocalAnnotations(llvm::Function &f, llvm::SmallPtrSetImpl<llvm::Value *>& res, std::vector<llvm::Value *>* rangeOnly = nullptr);
-  void readAllLocalAnnotations(llvm::Module &m, llvm::SmallPtrSetImpl<llvm::Value *>& res, std::vector<llvm::Value *>& rangeOnly);
+  void readLocalAnnotations(llvm::Function &f, llvm::SmallPtrSetImpl<llvm::Value *> &res);
+  void readAllLocalAnnotations(llvm::Module &m, llvm::SmallPtrSetImpl<llvm::Value *> &res);
   bool parseAnnotation(llvm::SmallPtrSetImpl<llvm::Value *>& variables, llvm::ConstantExpr *annoPtrInst, llvm::Value *instr, bool *isTarget = nullptr);
   void removeNoFloatTy(llvm::SmallPtrSetImpl<llvm::Value *>& res);
   void printAnnotatedObj(llvm::Module &m);

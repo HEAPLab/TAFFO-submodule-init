@@ -48,8 +48,7 @@ void TaffoInitializer::readGlobalAnnotations(Module &m, SmallPtrSetImpl<Value *>
 }
 
 
-void TaffoInitializer::readLocalAnnotations(Function &f, SmallPtrSetImpl<Value *>& variables,
-					    std::vector<Value *>* rangeOnly)
+void TaffoInitializer::readLocalAnnotations(llvm::Function &f, llvm::SmallPtrSetImpl<llvm::Value *> &variables)
 {
   bool found = false;
   for (inst_iterator iIt = inst_begin(&f), iItEnd = inst_end(&f); iIt != iItEnd; iIt++) {
@@ -59,9 +58,7 @@ void TaffoInitializer::readLocalAnnotations(Function &f, SmallPtrSetImpl<Value *
 	continue;
 
       if (call->getCalledFunction()->getName() == "llvm.var.annotation") {
-	if (parseAnnotation(variables, cast<ConstantExpr>(iIt->getOperand(1)), iIt->getOperand(0), &found)
-	    && rangeOnly)
-	  rangeOnly->push_back(call);
+        parseAnnotation(variables, cast<ConstantExpr>(iIt->getOperand(1)), iIt->getOperand(0), &found);
       }
     }
   }
@@ -70,12 +67,11 @@ void TaffoInitializer::readLocalAnnotations(Function &f, SmallPtrSetImpl<Value *
 }
 
 
-void TaffoInitializer::readAllLocalAnnotations(Module &m, SmallPtrSetImpl<Value *>& res,
-					       std::vector<Value *>& rangeOnly)
+void TaffoInitializer::readAllLocalAnnotations(llvm::Module &m, llvm::SmallPtrSetImpl<llvm::Value *> &res)
 {
   for (Function &f: m.functions()) {
     SmallPtrSet<Value*, 32> t;
-    readLocalAnnotations(f, t, &rangeOnly);
+    readLocalAnnotations(f, t);
     res.insert(t.begin(), t.end());
 
     /* Otherwise dce pass ignore the function

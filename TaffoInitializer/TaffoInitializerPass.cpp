@@ -37,10 +37,9 @@ bool TaffoInitializer::runOnModule(Module &m)
 {
   DEBUG_WITH_TYPE(DEBUG_ANNOTATION, printAnnotatedObj(m));
 
-  std::vector<llvm::Value *> rangeOnlyAnnotations;
   llvm::SmallPtrSet<llvm::Value *, 32> local;
   llvm::SmallPtrSet<llvm::Value *, 32> global;
-  readAllLocalAnnotations(m, local, rangeOnlyAnnotations);
+  readAllLocalAnnotations(m, local);
   readGlobalAnnotations(m, global);
   
   std::vector<Value*> rootsa(local.begin(), local.end());
@@ -59,7 +58,7 @@ bool TaffoInitializer::runOnModule(Module &m)
 
   DEBUG(printConversionQueue(vals));
   setFunctionArgsMetadata(m);
-  
+
   return true;
 }
 
@@ -87,7 +86,7 @@ void TaffoInitializer::removeAnnotationCalls(std::vector<Value*>& q)
 void TaffoInitializer::setMetadataOfValue(Value *v)
 {
   ValueInfo& vi = *valueInfo(v);
-  
+
   mdutils::FPType fpty(vi.fixpType.bitsAmt, vi.fixpType.fracBitsAmt, vi.fixpType.isSigned);
   mdutils::Range range(vi.rangeError.Min, vi.rangeError.Max);
   mdutils::InputInfo II(&fpty, &range,
