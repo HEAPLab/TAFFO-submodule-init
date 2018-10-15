@@ -22,6 +22,7 @@
 
 
 STATISTIC(AnnotationCount, "Number of valid annotations found");
+STATISTIC(FunctionCloned, "Number of fixed point function inserted");
 
 
 namespace taffo {

@@ -41,7 +41,7 @@ bool TaffoInitializer::runOnModule(Module &m)
   llvm::SmallPtrSet<llvm::Value *, 32> global;
   readAllLocalAnnotations(m, local);
   readGlobalAnnotations(m, global);
-  
+
   std::vector<Value*> rootsa(local.begin(), local.end());
   rootsa.insert(rootsa.begin(), global.begin(), global.end());
   AnnotationCount = rootsa.size();
@@ -89,8 +89,12 @@ void TaffoInitializer::setMetadataOfValue(Value *v)
 
   mdutils::FPType fpty(vi.fixpType.bitsAmt, vi.fixpType.fracBitsAmt, vi.fixpType.isSigned);
   mdutils::Range range(vi.rangeError.Min, vi.rangeError.Max);
-  mdutils::InputInfo II(&fpty, &range,
-			  (std::isnan(vi.rangeError.Error) ? nullptr : &vi.rangeError.Error));
+  mdutils::InputInfo II;
+
+  //set MetaData only for annotated instruction
+  if (vi.fixpTypeRootDistance==0 || true){ //TODO remove true with ValueRange
+    II = mdutils::InputInfo(&fpty, &range, (std::isnan(vi.rangeError.Error) ? nullptr : &vi.rangeError.Error));
+  }
 
   if (Instruction *inst = dyn_cast<Instruction>(v)) {
     if (vi.target.hasValue())
@@ -356,7 +360,9 @@ void TaffoInitializer::generateFunctionSpace(std::vector<Value *> &vals, SmallPt
       continue;
     }
     callTrace.insert(oldF);
+    callTrace.insert(newF);
     generateFunctionSpace(newVals, global, callTrace);
+    callTrace.erase(newF);
     callTrace.erase(oldF);
   }
 }
@@ -379,6 +385,7 @@ Function* TaffoInitializer::createFunctionAndQueue(CallSite *call, SmallPtrSetIm
   }
   SmallVector<ReturnInst*,100> returns;
   CloneFunctionInto(newF, oldF, mapArgs, true, returns);
+  FunctionCloned++;
 
   std::vector<Value*> roots; //propagate fixp conversion
   oldIt = oldF->arg_begin();
@@ -392,13 +399,13 @@ Function* TaffoInitializer::createFunctionAndQueue(CallSite *call, SmallPtrSetIm
       // Mark the alloca used for the argument (in O0 opt lvl)
       valueInfo(newIt->user_begin()->getOperand(1))->fixpType = fixtype;
       valueInfo(newIt->user_begin()->getOperand(1))->rangeError = rng;
-      valueInfo(newIt->user_begin()->getOperand(1))->fixpTypeRootDistance = dist+1;
+      valueInfo(newIt->user_begin()->getOperand(1))->fixpTypeRootDistance = dist+2;
       roots.push_back(newIt->user_begin()->getOperand(1));
 
       // Mark the argument itself
       valueInfo(newIt)->fixpType = fixtype;
       valueInfo(newIt)->rangeError = rng;
-      valueInfo(newIt)->fixpTypeRootDistance = dist;
+      valueInfo(newIt)->fixpTypeRootDistance = dist+1;
     }
   }
 
