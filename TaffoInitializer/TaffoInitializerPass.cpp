@@ -100,14 +100,12 @@ void TaffoInitializer::setMetadataOfValue(Value *v)
     if (vi.target.hasValue())
       mdutils::MetadataManager::setTargetMetadata(*inst, vi.target.getValue());
 
-    if (!inst->getMetadata(INPUT_INFO_METADATA))
-      mdutils::MetadataManager::setInputInfoMetadata(*inst, II);
+    mdutils::MetadataManager::setInputInfoMetadata(*inst, II);
   } else if (GlobalObject *con = dyn_cast<GlobalObject>(v)) {
     if (vi.target.hasValue())
       mdutils::MetadataManager::setTargetMetadata(*con, vi.target.getValue());
 
-    if (!con->getMetadata(INPUT_INFO_METADATA))
-      mdutils::MetadataManager::setInputInfoMetadata(*con, II);
+    mdutils::MetadataManager::setInputInfoMetadata(*con, II);
   }
 }
 
