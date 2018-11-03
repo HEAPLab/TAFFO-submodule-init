@@ -87,13 +87,15 @@ void TaffoInitializer::setMetadataOfValue(Value *v)
 {
   ValueInfo& vi = *valueInfo(v);
 
-  mdutils::FPType fpty(vi.fixpType.bitsAmt, vi.fixpType.fracBitsAmt, vi.fixpType.isSigned);
+  mdutils::FPType fpty(0, 0, false);
   mdutils::Range range(vi.rangeError.Min, vi.rangeError.Max);
   mdutils::InputInfo II;
 
   //set MetaData only for annotated instruction
   if (vi.fixpTypeRootDistance==0 || true){ //TODO remove true with ValueRange
-    II = mdutils::InputInfo(&fpty, &range, (std::isnan(vi.rangeError.Error) ? nullptr : &vi.rangeError.Error));
+    II = mdutils::InputInfo(vi.isOnlyRange ? nullptr : &fpty,
+        &range,
+        (std::isnan(vi.rangeError.Error) ? nullptr : &vi.rangeError.Error));
   }
 
   if (Instruction *inst = dyn_cast<Instruction>(v)) {
@@ -133,10 +135,8 @@ void TaffoInitializer::setFunctionArgsMetadata(Module &m)
           if (fVI != info.end()) {
             DEBUG(dbgs() << "Info found.\n");
             ValueInfo &vi = *fVI->second;
-            tyVec.push_back(mdutils::FPType(vi.fixpType.bitsAmt,
-                                              vi.fixpType.fracBitsAmt,
-                                              vi.fixpType.isSigned));
-            ii.IType = &tyVec.back();
+            tyVec.push_back(mdutils::FPType(0,0, false));
+            ii.IType = vi.isOnlyRange ? nullptr : &tyVec.back();
 
             ranVec.push_back(mdutils::Range(vi.rangeError.Min, vi.rangeError.Max));
             ii.IRange = &ranVec.back();
@@ -182,6 +182,7 @@ void TaffoInitializer::buildConversionQueueForRootValues(
       uinfo.target = vinfo.target;
       uinfo.fixpTypeRootDistance = std::max(vinfo.fixpTypeRootDistance, vinfo.fixpTypeRootDistance+1);
     }
+    uinfo.isOnlyRange = uinfo.isOnlyRange && vinfo.isOnlyRange;
   };
 
   size_t prevQueueSize = 0;
@@ -388,22 +389,28 @@ Function* TaffoInitializer::createFunctionAndQueue(CallSite *call, SmallPtrSetIm
   std::vector<Value*> roots; //propagate fixp conversion
   oldIt = oldF->arg_begin();
   newIt = newF->arg_begin();
+  DEBUG(dbgs() << "Create function from " << oldF->getName() << " to " << newF->getName() << "\n";);
   for (int i=0; oldIt != oldF->arg_end() ; oldIt++, newIt++,i++) {
     if (hasInfo(call->getInstruction()->getOperand(i))) {
-      FixedPointType fixtype = valueInfo(call->getInstruction()->getOperand(i))->fixpType;
       RangeError rng = valueInfo(call->getInstruction()->getOperand(i))->rangeError;
       int dist = valueInfo(call->getInstruction()->getOperand(i))->fixpTypeRootDistance;
+      bool isOnlyRange = valueInfo(call->getInstruction()->getOperand(i))->isOnlyRange;
 
       // Mark the alloca used for the argument (in O0 opt lvl)
-      valueInfo(newIt->user_begin()->getOperand(1))->fixpType = fixtype;
       valueInfo(newIt->user_begin()->getOperand(1))->rangeError = rng;
       valueInfo(newIt->user_begin()->getOperand(1))->fixpTypeRootDistance = dist+2;
+      valueInfo(newIt->user_begin()->getOperand(1))->isOnlyRange = isOnlyRange;
       roots.push_back(newIt->user_begin()->getOperand(1));
 
+      DEBUG(dbgs() << "\tArg nr. " << i << " has range [" << rng.Min << " , " << rng.Max << "]\n";);
+      DEBUG(dbgs() << *newIt->user_begin()->getOperand(1) <<" "
+                   << valueInfo(newIt->user_begin()->getOperand(1))->rangeError.Min << " - "
+                   << valueInfo(newIt->user_begin()->getOperand(1))->rangeError.Max << "\n";);
+
       // Mark the argument itself
-      valueInfo(newIt)->fixpType = fixtype;
       valueInfo(newIt)->rangeError = rng;
       valueInfo(newIt)->fixpTypeRootDistance = dist+1;
+      valueInfo(newIt)->isOnlyRange = isOnlyRange;
     }
   }
 

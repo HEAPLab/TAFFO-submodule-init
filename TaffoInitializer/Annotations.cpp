@@ -163,6 +163,20 @@ bool TaffoInitializer::parseAnnotation(SmallPtrSetImpl<Value *>& variables,
     *valueInfo(instr) = vi;
   }
 
+  bool useFlt = false;
+  if (Instruction *inst = dyn_cast<Instruction>(instr)) {
+    for (auto it = inst->op_begin(); it != inst->op_end(); it++) {
+      if (isFloatType(it->get()->getType()))
+        useFlt = true;
+    }
+  }
+  if (!isFloatType(instr->getType()) && !useFlt) {
+    valueInfo(instr)->isOnlyRange = true;
+    DEBUG(dbgs() << "[Info] Only data range on " << *instr << "\n");
+  } else {
+    valueInfo(instr)->isOnlyRange = false;
+  }
+
   return !readNumBits;
 }
 
