@@ -144,13 +144,13 @@ bool TaffoInitializer::parseAnnotation(SmallPtrSetImpl<Value *>& variables,
     vi.fixpTypeRootDistance = 0;
     vi.rangeError.Min = Min;
     vi.rangeError.Max = Max;
-    DEBUG(dbgs() << "Range found: [" << Min << ", " << Max << "]\n");
+    LLVM_DEBUG(dbgs() << "Range found: [" << Min << ", " << Max << "]\n");
 
     // Look for initial error
     double Error;
     strstm >> Error;
     if (!strstm.fail()) {
-      DEBUG(dbgs() << "Initial error found " << Error << "\n");
+      LLVM_DEBUG(dbgs() << "Initial error found " << Error << "\n");
       vi.rangeError.Error = Error;
     }
   }
@@ -179,7 +179,7 @@ void TaffoInitializer::removeNoFloatTy(SmallPtrSetImpl<Value *> &res)
     } else if ((global = dyn_cast<GlobalVariable>(it))) {
       ty = global->getType();
     } else {
-      DEBUG(dbgs() << "annotated instruction " << *it <<
+      LLVM_DEBUG(dbgs() << "annotated instruction " << *it <<
         " not an alloca or a global, ignored\n");
       res.erase(it);
       continue;
@@ -192,7 +192,7 @@ void TaffoInitializer::removeNoFloatTy(SmallPtrSetImpl<Value *> &res)
         ty = ty->getArrayElementType();
     }
     if (!ty->isFloatingPointTy()) {
-      DEBUG(dbgs() << "annotated instruction " << *it << " does not allocate a"
+      LLVM_DEBUG(dbgs() << "annotated instruction " << *it << " does not allocate a"
         " kind of float; ignored\n");
       res.erase(it);
     }

@@ -56,7 +56,7 @@ bool TaffoInitializer::runOnModule(Module &m)
   SmallPtrSet<Function*, 10> callTrace;
   generateFunctionSpace(vals, global, callTrace);
 
-  DEBUG(printConversionQueue(vals));
+  LLVM_DEBUG(printConversionQueue(vals));
   setFunctionArgsMetadata(m);
 
   return true;
@@ -116,22 +116,22 @@ void TaffoInitializer::setFunctionArgsMetadata(Module &m)
   std::vector<mdutils::InputInfo> iiVec;
   std::vector<mdutils::InputInfo *> iiPVec;
   for (Function &f : m.functions()) {
-    DEBUG(dbgs() << "Processing function " << f.getName() << "\n");
+    LLVM_DEBUG(dbgs() << "Processing function " << f.getName() << "\n");
     tyVec.reserve(f.arg_size());
     ranVec.reserve(f.arg_size());
     iiVec.reserve(f.arg_size());
     iiPVec.reserve(f.arg_size());
 
     for (const Argument &a : f.args()) {
-      DEBUG(dbgs() << "Processing arg " << a << "\n");
+      LLVM_DEBUG(dbgs() << "Processing arg " << a << "\n");
       mdutils::InputInfo ii(nullptr, nullptr, nullptr);
       for (const Use &u : a.uses()) {
         const Value *sv = u.getUser();
-        DEBUG(dbgs() << "Processing use " << *sv << "\n");
+        LLVM_DEBUG(dbgs() << "Processing use " << *sv << "\n");
         if (isa<StoreInst>(sv)) {
           auto fVI = info.find(sv);
           if (fVI != info.end()) {
-            DEBUG(dbgs() << "Info found.\n");
+            LLVM_DEBUG(dbgs() << "Info found.\n");
             ValueInfo &vi = *fVI->second;
             tyVec.push_back(mdutils::FPType(vi.fixpType.bitsAmt,
                                               vi.fixpType.fracBitsAmt,
@@ -186,7 +186,7 @@ void TaffoInitializer::buildConversionQueueForRootValues(
 
   size_t prevQueueSize = 0;
   while (prevQueueSize < queue.size()) {
-    DEBUG(dbgs() << "***** buildConversionQueueForRootValues iter " << prevQueueSize << " < " << queue.size() << "\n";);
+    LLVM_DEBUG(dbgs() << "***** buildConversionQueueForRootValues iter " << prevQueueSize << " < " << queue.size() << "\n";);
     prevQueueSize = queue.size();
 
     size_t next = 0;
