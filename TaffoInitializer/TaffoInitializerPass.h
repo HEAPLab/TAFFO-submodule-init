@@ -17,7 +17,7 @@
 #define __TAFFO_INITIALIZER_PASS_H__
 
 
-#define DEBUG_TYPE "flttofix"
+#define DEBUG_TYPE "taffo-init"
 #define DEBUG_ANNOTATION "annotation"
 
 

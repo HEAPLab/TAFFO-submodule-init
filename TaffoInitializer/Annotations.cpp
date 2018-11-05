@@ -52,10 +52,9 @@ void TaffoInitializer::readLocalAnnotations(llvm::Function &f, llvm::SmallPtrSet
 {
   bool found = false;
   for (inst_iterator iIt = inst_begin(&f), iItEnd = inst_end(&f); iIt != iItEnd; iIt++) {
-    CallInst *call = dyn_cast<CallInst>(&(*iIt));
-    if (call) {
+    if (CallInst *call = dyn_cast<CallInst>(&(*iIt))) {
       if (!call->getCalledFunction())
-	continue;
+        continue;
 
       if (call->getCalledFunction()->getName() == "llvm.var.annotation") {
         parseAnnotation(variables, cast<ConstantExpr>(iIt->getOperand(1)), iIt->getOperand(0), &found);
@@ -155,14 +154,6 @@ bool TaffoInitializer::parseAnnotation(SmallPtrSetImpl<Value *>& variables,
     }
   }
 
-  if (Instruction *toconv = dyn_cast<Instruction>(instr)) {
-    variables.insert(toconv->getOperand(0));
-    *valueInfo(toconv->getOperand(0)) = vi;
-  } else {
-    variables.insert(instr);
-    *valueInfo(instr) = vi;
-  }
-
   bool useFlt = false;
   if (Instruction *inst = dyn_cast<Instruction>(instr)) {
     for (auto it = inst->op_begin(); it != inst->op_end(); it++) {
@@ -171,10 +162,18 @@ bool TaffoInitializer::parseAnnotation(SmallPtrSetImpl<Value *>& variables,
     }
   }
   if (!isFloatType(instr->getType()) && !useFlt) {
-    valueInfo(instr)->isOnlyRange = true;
+    vi.isOnlyRange = true;
     DEBUG(dbgs() << "[Info] Only data range on " << *instr << "\n");
   } else {
-    valueInfo(instr)->isOnlyRange = false;
+    vi.isOnlyRange = false;
+  }
+
+  if (Instruction *toconv = dyn_cast<Instruction>(instr)) {
+    variables.insert(toconv->getOperand(0));
+    *valueInfo(toconv->getOperand(0)) = vi;
+  } else {
+    variables.insert(instr);
+    *valueInfo(instr) = vi;
   }
 
   return !readNumBits;
