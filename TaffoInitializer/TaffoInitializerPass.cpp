@@ -94,7 +94,7 @@ void TaffoInitializer::setMetadataOfValue(Value *v)
   //set MetaData only for annotated instruction
   II = mdutils::InputInfo(
       vi.isOnlyRange ? nullptr : &fpty,
-      vi.fixpTypeRootDistance ? nullptr : &range,
+      vi.fixpTypeRootDistance ? new mdutils::Range(RangeError().Min,RangeError().Max) : &range,
       std::isnan(vi.rangeError.Error) ? nullptr : &vi.rangeError.Error);
 
   if (Instruction *inst = dyn_cast<Instruction>(v)) {
@@ -136,7 +136,10 @@ void TaffoInitializer::setFunctionArgsMetadata(Module &m)
             tyVec.push_back(mdutils::FPType(0,0, false));
             ii.IType = vi.isOnlyRange ? nullptr : &tyVec.back();
 
-            ranVec.push_back(mdutils::Range(vi.rangeError.Min, vi.rangeError.Max));
+            mdutils::Range rng = vi.fixpTypeRootDistance
+                ? mdutils::Range(vi.rangeError.Min, vi.rangeError.Max)
+                : mdutils::Range(RangeError().Min,RangeError().Max);
+            ranVec.push_back(rng);
             ii.IRange = &ranVec.back();
 
             ii.IError = std::isnan(vi.rangeError.Error) ? nullptr : &vi.rangeError.Error;
