@@ -92,11 +92,10 @@ void TaffoInitializer::setMetadataOfValue(Value *v)
   mdutils::InputInfo II;
 
   //set MetaData only for annotated instruction
-  if (vi.fixpTypeRootDistance==0 || true){ //TODO remove true with ValueRange
-    II = mdutils::InputInfo(vi.isOnlyRange ? nullptr : &fpty,
-        &range,
-        (std::isnan(vi.rangeError.Error) ? nullptr : &vi.rangeError.Error));
-  }
+  II = mdutils::InputInfo(
+      vi.isOnlyRange ? nullptr : &fpty,
+      vi.fixpTypeRootDistance ? nullptr : &range,
+      std::isnan(vi.rangeError.Error) ? nullptr : &vi.rangeError.Error);
 
   if (Instruction *inst = dyn_cast<Instruction>(v)) {
     if (vi.target.hasValue())
@@ -128,13 +127,12 @@ void TaffoInitializer::setFunctionArgsMetadata(Module &m)
       DEBUG(dbgs() << "Processing arg " << a << "\n");
       mdutils::InputInfo ii(nullptr, nullptr, nullptr);
       for (const Use &u : a.uses()) {
-        const Value *sv = u.getUser();
+        Value *sv = u.getUser();
         DEBUG(dbgs() << "Processing use " << *sv << "\n");
         if (isa<StoreInst>(sv)) {
-          auto fVI = info.find(sv);
-          if (fVI != info.end()) {
+          if (hasInfo(sv)) {
             DEBUG(dbgs() << "Info found.\n");
-            ValueInfo &vi = *fVI->second;
+            ValueInfo &vi = *valueInfo(sv);
             tyVec.push_back(mdutils::FPType(0,0, false));
             ii.IType = vi.isOnlyRange ? nullptr : &tyVec.back();
 
@@ -302,11 +300,10 @@ void TaffoInitializer::buildConversionQueueForRootValues(
 
     SmallPtrSet<Value*, 5> newroots = valueInfo(v)->roots;
     for (Value *u: v->users()) {
-      auto oldrootsi = info.find(u);
-      if (!info.count(u))
+      if (!hasInfo(u))
         continue;
 
-      auto oldroots = oldrootsi->getSecond()->roots;
+      auto oldroots = valueInfo(u)->roots;
       SmallPtrSet<Value*, 5> merge(newroots);
       merge.insert(oldroots.begin(), oldroots.end());
       valueInfo(u)->roots = merge;
