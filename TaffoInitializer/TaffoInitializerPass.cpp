@@ -124,7 +124,7 @@ void TaffoInitializer::setFunctionArgsMetadata(Module &m)
       DEBUG(dbgs() << "Processing arg " << a << "\n");
       mdutils::InputInfo ii(nullptr, nullptr, nullptr);
       for (const Use &u : a.uses()) {
-        const Value *sv = u.getUser();
+        Value *sv = u.getUser();
         DEBUG(dbgs() << "Processing use " << *sv << "\n");
         if (isa<StoreInst>(sv)) {
           auto fVI = info.find(sv);
