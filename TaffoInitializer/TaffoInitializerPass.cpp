@@ -115,7 +115,7 @@ void TaffoInitializer::setFunctionArgsMetadata(Module &m)
   std::vector<mdutils::FPType> tyVec;
   std::vector<mdutils::Range> ranVec;
   std::vector<mdutils::InputInfo> iiVec;
-  std::vector<mdutils::InputInfo *> iiPVec;
+  std::vector<mdutils::MDInfo *> iiPVec;
   for (Function &f : m.functions()) {
     DEBUG(dbgs() << "Processing function " << f.getName() << "\n");
     tyVec.reserve(f.arg_size());
