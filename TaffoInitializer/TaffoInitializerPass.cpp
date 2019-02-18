@@ -196,6 +196,11 @@ void TaffoInitializer::buildConversionQueueForRootValues(
       Value *v = queue.at(next);
 
       for (auto *u: v->users()) {
+        /* ignore u if it is the global annotation array */
+        if (GlobalObject *ugo = dyn_cast<GlobalObject>(u)) {
+          if (ugo->hasSection() && ugo->getSection() == "llvm.metadata")
+            continue;
+        }
 
         /* Insert u at the end of the queue.
          * If u exists already in the queue, *move* it to the end instead. */
