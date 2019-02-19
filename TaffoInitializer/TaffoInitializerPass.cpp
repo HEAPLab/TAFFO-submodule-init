@@ -323,19 +323,16 @@ void TaffoInitializer::buildConversionQueueForRootValues(
 void TaffoInitializer::generateFunctionSpace(std::vector<Value *> &vals, SmallPtrSetImpl<llvm::Value *> &global,
                                              SmallPtrSet<Function *, 10> &callTrace)
 {
-  std::vector<CallSite*> calls;
-
-  //filter
-  for (Value *v : vals) {
-    if (isa<CallInst>(v) || isa<InvokeInst>(v)) {
-      CallSite *call = new CallSite(v);
-      calls.push_back(call);
-    }
-  }
-
-  for (CallSite *call : calls) {
+  for (Value *v: vals) {
+    if (!(isa<CallInst>(v) || isa<InvokeInst>(v)))
+      continue;
+    CallSite *call = new CallSite(v);
+    
     Function *oldF = call->getCalledFunction();
-    assert(oldF && "bitcasted function pointers and such not handled atm");
+    if (!oldF) {
+      DEBUG(dbgs() << "found bitcasted funcptr in " << *v << "\n");
+      assert(0 && "bitcasted function pointers and such not handled atm");
+    }
     if(isSpecialFunction(oldF))
       continue;
 
