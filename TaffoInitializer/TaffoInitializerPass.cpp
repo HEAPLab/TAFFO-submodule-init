@@ -398,12 +398,12 @@ Function* TaffoInitializer::createFunctionAndQueue(CallSite *call, SmallPtrSetIm
   for (int i=0; oldIt != oldF->arg_end() ; oldIt++, newIt++,i++) {
     if (hasInfo(call->getInstruction()->getOperand(i))) {
       RangeError rng = valueInfo(call->getInstruction()->getOperand(i))->rangeError;
-      int dist = valueInfo(call->getInstruction()->getOperand(i))->fixpTypeRootDistance;
       bool isOnlyRange = valueInfo(call->getInstruction()->getOperand(i))->isOnlyRange;
 
       // Mark the alloca used for the argument (in O0 opt lvl)
+      // let it be a root
       valueInfo(newIt->user_begin()->getOperand(1))->rangeError = rng;
-      valueInfo(newIt->user_begin()->getOperand(1))->fixpTypeRootDistance = dist+2;
+      valueInfo(newIt->user_begin()->getOperand(1))->fixpTypeRootDistance = 0;
       valueInfo(newIt->user_begin()->getOperand(1))->isOnlyRange = isOnlyRange;
       roots.push_back(newIt->user_begin()->getOperand(1));
 
@@ -412,9 +412,9 @@ Function* TaffoInitializer::createFunctionAndQueue(CallSite *call, SmallPtrSetIm
                    << valueInfo(newIt->user_begin()->getOperand(1))->rangeError.Min << " - "
                    << valueInfo(newIt->user_begin()->getOperand(1))->rangeError.Max << "\n";);
 
-      // Mark the argument itself
+      // Mark the argument itself (set it as a new root as well)
       valueInfo(newIt)->rangeError = rng;
-      valueInfo(newIt)->fixpTypeRootDistance = dist+1;
+      valueInfo(newIt)->fixpTypeRootDistance = 0;
       valueInfo(newIt)->isOnlyRange = isOnlyRange;
     }
   }
