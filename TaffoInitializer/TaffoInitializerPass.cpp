@@ -91,10 +91,10 @@ void TaffoInitializer::setMetadataOfValue(Value *v)
   mdutils::Range range(vi.rangeError.Min, vi.rangeError.Max);
   mdutils::InputInfo II;
 
-  //set MetaData only for annotated instruction
+  //set MetaData only for annotated instruction and roots
   II = mdutils::InputInfo(
       vi.isOnlyRange ? nullptr : &fpty,
-      vi.fixpTypeRootDistance ? new mdutils::Range(RangeError().Min,RangeError().Max) : &range,
+      (vi.fixpTypeRootDistance == 0 || vi.isRoot) ? &range : new mdutils::Range(RangeError().Min,RangeError().Max),
       std::isnan(vi.rangeError.Error) ? nullptr : &vi.rangeError.Error);
 
   if (Instruction *inst = dyn_cast<Instruction>(v)) {
@@ -401,6 +401,7 @@ Function* TaffoInitializer::createFunctionAndQueue(CallSite *call, SmallPtrSetIm
       // let it be a root
       valueInfo(newIt->user_begin()->getOperand(1))->rangeError = rng;
       valueInfo(newIt->user_begin()->getOperand(1))->fixpTypeRootDistance = 0;
+      valueInfo(newIt->user_begin()->getOperand(1))->isRoot = true;
       valueInfo(newIt->user_begin()->getOperand(1))->isOnlyRange = isOnlyRange;
       roots.push_back(newIt->user_begin()->getOperand(1));
 
@@ -412,6 +413,7 @@ Function* TaffoInitializer::createFunctionAndQueue(CallSite *call, SmallPtrSetIm
       // Mark the argument itself (set it as a new root as well)
       valueInfo(newIt)->rangeError = rng;
       valueInfo(newIt)->fixpTypeRootDistance = 0;
+      valueInfo(newIt)->isRoot = true;
       valueInfo(newIt)->isOnlyRange = isOnlyRange;
     }
   }
