@@ -109,11 +109,14 @@ bool TaffoInitializer::parseAnnotation(SmallPtrSetImpl<Value *>& variables,
     if (isTarget)
       *isTarget = true;
   }
-  if (head == "no_float")
-    vi.isBacktrackingNode = false;
-  else if (head == "force_no_float")
-    vi.isBacktrackingNode = true;
-  else if (head == "range")
+  if (head == "no_float" || head == "force_no_float") {
+    if (head == "no_float")
+      vi.isBacktrackingNode = false;
+    else
+      vi.isBacktrackingNode = true;
+    strstm >> head;
+  }
+  if (head == "range")
     readNumBits = false;
   else
     return false;
