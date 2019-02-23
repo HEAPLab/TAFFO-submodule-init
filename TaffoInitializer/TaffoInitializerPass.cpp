@@ -87,15 +87,20 @@ void TaffoInitializer::setMetadataOfValue(Value *v)
 {
   ValueInfo& vi = *valueInfo(v);
 
-  mdutils::FPType fpty(0, 0, false);
-  mdutils::Range range(vi.rangeError.Min, vi.rangeError.Max);
   mdutils::InputInfo II;
-
+  
   //set MetaData only for annotated instruction and roots
-  II = mdutils::InputInfo(
-      vi.isOnlyRange ? nullptr : &fpty,
-      (vi.fixpTypeRootDistance == 0 || vi.isRoot) ? &range : new mdutils::Range(RangeError().Min,RangeError().Max),
-      std::isnan(vi.rangeError.Error) ? nullptr : &vi.rangeError.Error);
+  if (!vi.isOnlyRange) {
+    II.IType.reset(new mdutils::FPType(0, 0, false));
+  }
+  if (vi.fixpTypeRootDistance == 0 || vi.isRoot) {
+    II.IRange.reset(new mdutils::Range(vi.rangeError.Min, vi.rangeError.Max));
+  } else {
+    II.IRange.reset(new mdutils::Range(RangeError().Min,RangeError().Max));
+  }
+  if (std::isnan(vi.rangeError.Error)) {
+    II.IError.reset(new double(vi.rangeError.Error));
+  }
 
   if (Instruction *inst = dyn_cast<Instruction>(v)) {
     if (vi.target.hasValue())
@@ -112,14 +117,10 @@ void TaffoInitializer::setMetadataOfValue(Value *v)
 
 void TaffoInitializer::setFunctionArgsMetadata(Module &m)
 {
-  std::vector<mdutils::FPType> tyVec;
-  std::vector<mdutils::Range> ranVec;
   std::vector<mdutils::InputInfo> iiVec;
   std::vector<mdutils::MDInfo *> iiPVec;
   for (Function &f : m.functions()) {
     DEBUG(dbgs() << "Processing function " << f.getName() << "\n");
-    tyVec.reserve(f.arg_size());
-    ranVec.reserve(f.arg_size());
     iiVec.reserve(f.arg_size());
     iiPVec.reserve(f.arg_size());
 
@@ -133,16 +134,14 @@ void TaffoInitializer::setFunctionArgsMetadata(Module &m)
           if (hasInfo(sv)) {
             DEBUG(dbgs() << "Info found.\n");
             ValueInfo &vi = *valueInfo(sv);
-            tyVec.push_back(mdutils::FPType(0,0, false));
-            ii.IType = vi.isOnlyRange ? nullptr : &tyVec.back();
+            ii.IType.reset(vi.isOnlyRange ? nullptr : new mdutils::FPType(0,0, false));
 
-            mdutils::Range rng = vi.fixpTypeRootDistance
-                ? mdutils::Range(vi.rangeError.Min, vi.rangeError.Max)
-                : mdutils::Range(RangeError().Min,RangeError().Max);
-            ranVec.push_back(rng);
-            ii.IRange = &ranVec.back();
+            mdutils::Range *rng = vi.fixpTypeRootDistance
+                ? new mdutils::Range(vi.rangeError.Min, vi.rangeError.Max)
+                : new mdutils::Range(RangeError().Min,RangeError().Max);
+            ii.IRange.reset(rng);
 
-            ii.IError = std::isnan(vi.rangeError.Error) ? nullptr : &vi.rangeError.Error;
+            ii.IError.reset(std::isnan(vi.rangeError.Error) ? nullptr : new double(vi.rangeError.Error));
 
             break;
           }
@@ -154,8 +153,6 @@ void TaffoInitializer::setFunctionArgsMetadata(Module &m)
 
     mdutils::MetadataManager::setArgumentInputInfoMetadata(f, iiPVec);
 
-    tyVec.clear();
-    ranVec.clear();
     iiVec.clear();
     iiPVec.clear();
   }
