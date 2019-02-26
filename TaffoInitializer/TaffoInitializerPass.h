@@ -10,7 +10,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Support/CommandLine.h"
-#include "FixedPointType.h"
+#include "InputInfo.h"
 
 
 #ifndef __TAFFO_INITIALIZER_PASS_H__
@@ -38,10 +38,9 @@ struct ValueInfo {
   bool isRoot;
   bool isOnlyRange = true;
   llvm::SmallPtrSet<llvm::Value*, 5> roots;
-  FixedPointType fixpType;  // significant iff origType is a float or a pointer to a float
   int fixpTypeRootDistance = INT_MAX;
-  llvm::Type *origType;
-  RangeError rangeError;
+  
+  std::shared_ptr<mdutils::MDInfo> metadata;
   llvm::Optional<std::string> target;
 };
 

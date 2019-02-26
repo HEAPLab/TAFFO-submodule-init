@@ -120,21 +120,22 @@ bool TaffoInitializer::parseAnnotation(SmallPtrSetImpl<Value *>& variables,
     readNumBits = false;
   else
     return false;
+  
+  mdutils::InputInfo *info = new mdutils::InputInfo();
+  vi.metadata.reset(info);
 
   if (readNumBits) {
     int intbits, fracbits;
     strstm >> intbits >> fracbits;
     if (!strstm.fail()) {
       vi.fixpTypeRootDistance = 0;
-      vi.fixpType.bitsAmt = intbits + fracbits;
-      vi.fixpType.fracBitsAmt = fracbits;
-
+      
       std::string signedflg;
       strstm >> signedflg;
       if (!strstm.fail() && signedflg == "unsigned") {
-	vi.fixpType.isSigned = false;
+        info->IType.reset(new mdutils::FPType(intbits + fracbits, fracbits, false));
       } else {
-	vi.fixpType.isSigned = true;
+	      info->IType.reset(new mdutils::FPType(intbits + fracbits, fracbits, true));
       }
     }
   }
@@ -144,8 +145,7 @@ bool TaffoInitializer::parseAnnotation(SmallPtrSetImpl<Value *>& variables,
   strstm >> Min >> Max;
   if (!strstm.fail()) {
     vi.fixpTypeRootDistance = 0;
-    vi.rangeError.Min = Min;
-    vi.rangeError.Max = Max;
+    info->IRange.reset(new mdutils::Range(Min, Max));
     DEBUG(dbgs() << "Range found: [" << Min << ", " << Max << "]\n");
 
     // Look for initial error
@@ -153,22 +153,8 @@ bool TaffoInitializer::parseAnnotation(SmallPtrSetImpl<Value *>& variables,
     strstm >> Error;
     if (!strstm.fail()) {
       DEBUG(dbgs() << "Initial error found " << Error << "\n");
-      vi.rangeError.Error = Error;
+      info->IError.reset(new double(Error));
     }
-  }
-
-  bool useFlt = false;
-  if (Instruction *inst = dyn_cast<Instruction>(instr)) {
-    for (auto it = inst->op_begin(); it != inst->op_end(); it++) {
-      if (isFloatType(it->get()->getType()))
-        useFlt = true;
-    }
-  }
-  if (!isFloatType(instr->getType()) && !useFlt) {
-    vi.isOnlyRange = true;
-    DEBUG(dbgs() << "[Info] Only data range on " << *instr << "\n");
-  } else {
-    vi.isOnlyRange = false;
   }
 
   if (Instruction *toconv = dyn_cast<Instruction>(instr)) {

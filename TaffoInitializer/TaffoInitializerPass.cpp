@@ -33,6 +33,24 @@ static RegisterPass<TaffoInitializer> X(
   false /* does not affect the CFG */,
   true /* Optimization Pass (sorta) */);
 
+
+Type *fullyUnwrapPointerOrArrayType(Type *srct)
+{
+  if (srct->isPointerTy()) {
+    return fullyUnwrapPointerOrArrayType(srct->getPointerElementType());
+  } else if (srct->isArrayTy()) {
+    return fullyUnwrapPointerOrArrayType(srct->getArrayElementType());
+  }
+  return srct;
+}
+
+
+bool isFloatType(Type *srct)
+{
+  return fullyUnwrapPointerOrArrayType(srct)->isFloatingPointTy();
+}
+
+
 bool TaffoInitializer::runOnModule(Module &m)
 {
   DEBUG_WITH_TYPE(DEBUG_ANNOTATION, printAnnotatedObj(m));
@@ -78,7 +96,23 @@ void TaffoInitializer::removeAnnotationCalls(std::vector<Value*>& q)
       }
     }
     
+    // TODO: remove global annotations
+    
     i++;
+  }
+}
+
+
+void removeRangesFromMetadata(std::shared_ptr<mdutils::MDInfo> mdinfo)
+{
+  SmallVector<std::shared_ptr<mdutils::MDInfo>, 1> list({mdinfo});
+  while (list.size() > 0) {
+    std::shared_ptr<mdutils::MDInfo> cur = list.pop_back_val();
+    if (mdutils::InputInfo *ii = dyn_cast<mdutils::InputInfo>(cur.get())) {
+      ii->IRange.reset();
+    } else if (mdutils::StructInfo *si = dyn_cast<mdutils::StructInfo>(cur.get())){
+      list.append(si->begin(), si->end());
+    }
   }
 }
 
@@ -86,47 +120,44 @@ void TaffoInitializer::removeAnnotationCalls(std::vector<Value*>& q)
 void TaffoInitializer::setMetadataOfValue(Value *v)
 {
   ValueInfo& vi = *valueInfo(v);
-
-  mdutils::InputInfo II;
+  std::shared_ptr<mdutils::MDInfo> md = vi.metadata;
   
-  //set MetaData only for annotated instruction and roots
-  if (!vi.isOnlyRange) {
-    II.IType.reset(new mdutils::FPType(0, 0, false));
-  }
-  if (vi.fixpTypeRootDistance == 0 || vi.isRoot) {
-    II.IRange.reset(new mdutils::Range(vi.rangeError.Min, vi.rangeError.Max));
-  } else {
-    II.IRange.reset(new mdutils::Range(RangeError().Min,RangeError().Max));
-  }
-  if (std::isnan(vi.rangeError.Error)) {
-    II.IError.reset(new double(vi.rangeError.Error));
+  if (!(vi.fixpTypeRootDistance == 0 || vi.isRoot)) {
+    md.reset(md->clone());
+    removeRangesFromMetadata(md);
   }
 
   if (Instruction *inst = dyn_cast<Instruction>(v)) {
     if (vi.target.hasValue())
       mdutils::MetadataManager::setTargetMetadata(*inst, vi.target.getValue());
 
-    mdutils::MetadataManager::setInputInfoMetadata(*inst, II);
+    if (mdutils::InputInfo *ii = dyn_cast<mdutils::InputInfo>(md.get())) {
+      mdutils::MetadataManager::setInputInfoMetadata(*inst, *ii);
+    } else if (mdutils::StructInfo *si = dyn_cast<mdutils::StructInfo>(md.get())) {
+      mdutils::MetadataManager::setStructInfoMetadata(*inst, *si);
+    }
   } else if (GlobalObject *con = dyn_cast<GlobalObject>(v)) {
     if (vi.target.hasValue())
       mdutils::MetadataManager::setTargetMetadata(*con, vi.target.getValue());
 
-    mdutils::MetadataManager::setInputInfoMetadata(*con, II);
+    if (mdutils::InputInfo *ii = dyn_cast<mdutils::InputInfo>(md.get())) {
+      mdutils::MetadataManager::setInputInfoMetadata(*con, *ii);
+    } else if (mdutils::StructInfo *si = dyn_cast<mdutils::StructInfo>(md.get())) {
+      mdutils::MetadataManager::setStructInfoMetadata(*con, *si);
+    }
   }
 }
 
 void TaffoInitializer::setFunctionArgsMetadata(Module &m)
 {
-  std::vector<mdutils::InputInfo> iiVec;
   std::vector<mdutils::MDInfo *> iiPVec;
   for (Function &f : m.functions()) {
     DEBUG(dbgs() << "Processing function " << f.getName() << "\n");
-    iiVec.reserve(f.arg_size());
     iiPVec.reserve(f.arg_size());
 
     for (const Argument &a : f.args()) {
       DEBUG(dbgs() << "Processing arg " << a << "\n");
-      mdutils::InputInfo ii(nullptr, nullptr, nullptr);
+      mdutils::MDInfo *ii = nullptr;
       for (const Use &u : a.uses()) {
         Value *sv = u.getUser();
         DEBUG(dbgs() << "Processing use " << *sv << "\n");
@@ -134,26 +165,16 @@ void TaffoInitializer::setFunctionArgsMetadata(Module &m)
           if (hasInfo(sv)) {
             DEBUG(dbgs() << "Info found.\n");
             ValueInfo &vi = *valueInfo(sv);
-            ii.IType.reset(vi.isOnlyRange ? nullptr : new mdutils::FPType(0,0, false));
-
-            mdutils::Range *rng = vi.fixpTypeRootDistance
-                ? new mdutils::Range(vi.rangeError.Min, vi.rangeError.Max)
-                : new mdutils::Range(RangeError().Min,RangeError().Max);
-            ii.IRange.reset(rng);
-
-            ii.IError.reset(std::isnan(vi.rangeError.Error) ? nullptr : new double(vi.rangeError.Error));
-
+            ii = vi.metadata.get();
             break;
           }
         }
       }
-      iiVec.push_back(ii);
-      iiPVec.push_back(&iiVec.back());
+      iiPVec.push_back(ii);
     }
 
     mdutils::MetadataManager::setArgumentInputInfoMetadata(f, iiPVec);
 
-    iiVec.clear();
     iiPVec.clear();
   }
 }
@@ -171,12 +192,8 @@ void TaffoInitializer::buildConversionQueueForRootValues(
   auto completeInfo = [this](Value *v, Value *u) {
     ValueInfo vinfo = *valueInfo(v);
     ValueInfo &uinfo = *valueInfo(u);
-    uinfo.origType = u->getType();
     if (uinfo.fixpTypeRootDistance > std::max(vinfo.fixpTypeRootDistance, vinfo.fixpTypeRootDistance+1)) {
-      uinfo.fixpType = vinfo.fixpType;
-      uinfo.rangeError.Min = vinfo.rangeError.Min;
-      uinfo.rangeError.Max = vinfo.rangeError.Max;
-      uinfo.rangeError.Error = vinfo.rangeError.Error;
+      uinfo.metadata.reset(vinfo.metadata->clone());
       uinfo.target = vinfo.target;
       uinfo.fixpTypeRootDistance = std::max(vinfo.fixpTypeRootDistance, vinfo.fixpTypeRootDistance+1);
     }
@@ -391,27 +408,33 @@ Function* TaffoInitializer::createFunctionAndQueue(CallSite *call, SmallPtrSetIm
   DEBUG(dbgs() << "Create function from " << oldF->getName() << " to " << newF->getName() << "\n";);
   for (int i=0; oldIt != oldF->arg_end() ; oldIt++, newIt++,i++) {
     if (hasInfo(call->getInstruction()->getOperand(i))) {
-      RangeError rng = valueInfo(call->getInstruction()->getOperand(i))->rangeError;
-      bool isOnlyRange = valueInfo(call->getInstruction()->getOperand(i))->isOnlyRange;
+      ValueInfo& callVi = *valueInfo(call->getInstruction()->getOperand(i));
+      ValueInfo& allocaVi = *valueInfo(newIt->user_begin()->getOperand(1));
+      ValueInfo& argumentVi = *valueInfo(newIt);
+      
+      bool isOnlyRange = callVi.isOnlyRange;
 
       // Mark the alloca used for the argument (in O0 opt lvl)
       // let it be a root
-      valueInfo(newIt->user_begin()->getOperand(1))->rangeError = rng;
-      valueInfo(newIt->user_begin()->getOperand(1))->fixpTypeRootDistance = 0;
-      valueInfo(newIt->user_begin()->getOperand(1))->isRoot = true;
-      valueInfo(newIt->user_begin()->getOperand(1))->isOnlyRange = isOnlyRange;
+      allocaVi.metadata.reset(callVi.metadata->clone());
+      allocaVi.fixpTypeRootDistance = 0;
+      allocaVi.isRoot = true;
+      allocaVi.isOnlyRange = isOnlyRange;
       roots.push_back(newIt->user_begin()->getOperand(1));
-
+      
+      DEBUG(dbgs() << "\tArg nr. " << i << " processed\n");
+      /*
       DEBUG(dbgs() << "\tArg nr. " << i << " has range [" << rng.Min << " , " << rng.Max << "]\n";);
       DEBUG(dbgs() << *newIt->user_begin()->getOperand(1) <<" "
                    << valueInfo(newIt->user_begin()->getOperand(1))->rangeError.Min << " - "
                    << valueInfo(newIt->user_begin()->getOperand(1))->rangeError.Max << "\n";);
-
+      */
+      
       // Mark the argument itself (set it as a new root as well)
-      valueInfo(newIt)->rangeError = rng;
-      valueInfo(newIt)->fixpTypeRootDistance = 0;
-      valueInfo(newIt)->isRoot = true;
-      valueInfo(newIt)->isOnlyRange = isOnlyRange;
+      argumentVi.metadata.reset(callVi.metadata->clone());
+      argumentVi.fixpTypeRootDistance = 0;
+      argumentVi.isRoot = true;
+      argumentVi.isOnlyRange = isOnlyRange;
     }
   }
 
@@ -438,7 +461,6 @@ void TaffoInitializer::printConversionQueue(std::vector<Value*> vals)
     errs() << "conversion queue:\n";
     for (Value *val: vals) {
       errs() << "bt=" << valueInfo(val)->isBacktrackingNode << " ";
-      errs() << valueInfo(val)->fixpType << " ";
       errs() << "[";
       for (Value *rootv: valueInfo(val)->roots) {
         rootv->print(errs());
