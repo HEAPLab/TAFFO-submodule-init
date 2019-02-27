@@ -197,7 +197,6 @@ void TaffoInitializer::buildConversionQueueForRootValues(
       uinfo.target = vinfo.target;
       uinfo.fixpTypeRootDistance = std::max(vinfo.fixpTypeRootDistance, vinfo.fixpTypeRootDistance+1);
     }
-    uinfo.isOnlyRange = uinfo.isOnlyRange && vinfo.isOnlyRange;
   };
 
   size_t prevQueueSize = 0;
@@ -412,14 +411,11 @@ Function* TaffoInitializer::createFunctionAndQueue(CallSite *call, SmallPtrSetIm
       ValueInfo& allocaVi = *valueInfo(newIt->user_begin()->getOperand(1));
       ValueInfo& argumentVi = *valueInfo(newIt);
       
-      bool isOnlyRange = callVi.isOnlyRange;
-
       // Mark the alloca used for the argument (in O0 opt lvl)
       // let it be a root
       allocaVi.metadata.reset(callVi.metadata->clone());
       allocaVi.fixpTypeRootDistance = 0;
       allocaVi.isRoot = true;
-      allocaVi.isOnlyRange = isOnlyRange;
       roots.push_back(newIt->user_begin()->getOperand(1));
       
       DEBUG(dbgs() << "\tArg nr. " << i << " processed\n");
@@ -434,7 +430,6 @@ Function* TaffoInitializer::createFunctionAndQueue(CallSite *call, SmallPtrSetIm
       argumentVi.metadata.reset(callVi.metadata->clone());
       argumentVi.fixpTypeRootDistance = 0;
       argumentVi.isRoot = true;
-      argumentVi.isOnlyRange = isOnlyRange;
     }
   }
 

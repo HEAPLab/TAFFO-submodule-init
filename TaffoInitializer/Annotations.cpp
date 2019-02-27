@@ -9,6 +9,7 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/raw_ostream.h"
 #include "TaffoInitializerPass.h"
+#include "AnnotationParser.h"
 #include "Metadata.h"
 
 using namespace llvm;
@@ -79,7 +80,7 @@ void TaffoInitializer::readAllLocalAnnotations(llvm::Module &m, llvm::SmallPtrSe
   }
 }
 
-// Return true if the annotation contained only range data (no fixed point type data)
+// Return true on success, false on error
 bool TaffoInitializer::parseAnnotation(SmallPtrSetImpl<Value *>& variables,
 				       ConstantExpr *annoPtrInst, Value *instr,
 				       bool *isTarget)
@@ -98,64 +99,16 @@ bool TaffoInitializer::parseAnnotation(SmallPtrSetImpl<Value *>& variables,
     return false;
 
   StringRef annstr = annoStr->getAsString();
-  std::istringstream strstm(annstr.substr(0, annstr.size()-1));
-
-  bool readNumBits = true;
-  std::string head;
-  strstm >> head;
-  if (head.find("target:") == 0) {
-    vi.target = head.substr(7); // strlen("target:") == 7
-    strstm >> head;
-    if (isTarget)
-      *isTarget = true;
-  }
-  if (head == "no_float" || head == "force_no_float") {
-    if (head == "no_float")
-      vi.isBacktrackingNode = false;
-    else
-      vi.isBacktrackingNode = true;
-    strstm >> head;
-  }
-  if (head == "range")
-    readNumBits = false;
-  else
+  AnnotationParser parser;
+  if (!parser.parseAnnotationString(annstr))
     return false;
-  
-  mdutils::InputInfo *info = new mdutils::InputInfo();
-  vi.metadata.reset(info);
-
-  if (readNumBits) {
-    int intbits, fracbits;
-    strstm >> intbits >> fracbits;
-    if (!strstm.fail()) {
-      vi.fixpTypeRootDistance = 0;
-      
-      std::string signedflg;
-      strstm >> signedflg;
-      if (!strstm.fail() && signedflg == "unsigned") {
-        info->IType.reset(new mdutils::FPType(intbits + fracbits, fracbits, false));
-      } else {
-	      info->IType.reset(new mdutils::FPType(intbits + fracbits, fracbits, true));
-      }
-    }
-  }
-
-  // Look for Range info
-  double Min, Max;
-  strstm >> Min >> Max;
-  if (!strstm.fail()) {
-    vi.fixpTypeRootDistance = 0;
-    info->IRange.reset(new mdutils::Range(Min, Max));
-    DEBUG(dbgs() << "Range found: [" << Min << ", " << Max << "]\n");
-
-    // Look for initial error
-    double Error;
-    strstm >> Error;
-    if (!strstm.fail()) {
-      DEBUG(dbgs() << "Initial error found " << Error << "\n");
-      info->IError.reset(new double(Error));
-    }
-  }
+  vi.fixpTypeRootDistance = 0;
+  vi.isRoot = true;
+  vi.isBacktrackingNode = parser.backtracking;
+  vi.metadata = parser.metadata;
+  if (isTarget)
+    *isTarget = parser.isTarget;
+  vi.target = parser.target;
 
   if (Instruction *toconv = dyn_cast<Instruction>(instr)) {
     variables.insert(toconv->getOperand(0));
@@ -165,7 +118,7 @@ bool TaffoInitializer::parseAnnotation(SmallPtrSetImpl<Value *>& variables,
     *valueInfo(instr) = vi;
   }
 
-  return !readNumBits;
+  return true;
 }
 
 

@@ -1,5 +1,5 @@
 #include <limits>
-#include <llvm/IR/CallSite.h>
+#include "llvm/IR/CallSite.h"
 #include "llvm/Pass.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Constants.h"
@@ -27,16 +27,9 @@ STATISTIC(FunctionCloned, "Number of fixed point function inserted");
 
 namespace taffo {
 
-struct RangeError {
-  double Min = std::numeric_limits<double>::quiet_NaN();
-  double Max = std::numeric_limits<double>::quiet_NaN();
-  double Error = std::numeric_limits<double>::quiet_NaN();
-};
-
 struct ValueInfo {
   bool isBacktrackingNode = false;
   bool isRoot;
-  bool isOnlyRange = true;
   llvm::SmallPtrSet<llvm::Value*, 5> roots;
   int fixpTypeRootDistance = INT_MAX;
   
