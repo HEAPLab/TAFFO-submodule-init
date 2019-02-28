@@ -191,16 +191,6 @@ void TaffoInitializer::buildConversionQueueForRootValues(
     valueInfo(*i)->isRoot = true;
   }
 
-  auto completeInfo = [this](Value *v, Value *u) {
-    ValueInfo vinfo = *valueInfo(v);
-    ValueInfo &uinfo = *valueInfo(u);
-    if (uinfo.fixpTypeRootDistance > std::max(vinfo.fixpTypeRootDistance, vinfo.fixpTypeRootDistance+1)) {
-      uinfo.metadata.reset(vinfo.metadata->clone());
-      uinfo.target = vinfo.target;
-      uinfo.fixpTypeRootDistance = std::max(vinfo.fixpTypeRootDistance, vinfo.fixpTypeRootDistance+1);
-    }
-  };
-
   size_t prevQueueSize = 0;
   while (prevQueueSize < queue.size()) {
     DEBUG(dbgs() << "***** buildConversionQueueForRootValues iter " << prevQueueSize << " < " << queue.size() << "\n";);
@@ -233,7 +223,7 @@ void TaffoInitializer::buildConversionQueueForRootValues(
         if (valueInfo(v)->isBacktrackingNode) {
           valueInfo(u)->isBacktrackingNode = true;
         }
-        completeInfo(v, u);
+        createInfoOfUser(v, u);
       }
       next++;
     }
@@ -311,7 +301,7 @@ void TaffoInitializer::buildConversionQueueForRootValues(
           #endif
         }
 
-        completeInfo(v, u);
+        createInfoOfUser(v, u);
       }
     }
   }
@@ -332,6 +322,36 @@ void TaffoInitializer::buildConversionQueueForRootValues(
       valueInfo(u)->roots = merge;
     }
   }
+}
+
+
+void TaffoInitializer::createInfoOfUser(Value *used, Value *user)
+{
+  ValueInfo vinfo = *valueInfo(used);
+  ValueInfo &uinfo = *valueInfo(user);
+  if (uinfo.fixpTypeRootDistance <= std::max(vinfo.fixpTypeRootDistance, vinfo.fixpTypeRootDistance+1))
+    return;
+  
+  /* Do not copy metadata in case of type conversions from struct to
+   * non-struct and vice-versa.
+   * We could check the instruction type and copy the correct type
+   * contained in the struct type or create a struct type with the
+   * correct type in the correct place, but is'a huge mess */
+  Type *usedt = fullyUnwrapPointerOrArrayType(used->getType());
+  Type *usert = fullyUnwrapPointerOrArrayType(user->getType());
+  bool copyok = (usedt == usert);
+  copyok |= !usedt->isStructTy() && !usert->isStructTy();
+  if (copyok) {
+    uinfo.metadata.reset(vinfo.metadata->clone());
+  } else {
+    uinfo.metadata = mdutils::StructInfo::constructFromLLVMType(usert);
+    if (uinfo.metadata.get() == nullptr) {
+      uinfo.metadata.reset(new mdutils::InputInfo());
+    }
+  }
+  
+  uinfo.target = vinfo.target;
+  uinfo.fixpTypeRootDistance = std::max(vinfo.fixpTypeRootDistance, vinfo.fixpTypeRootDistance+1);
 }
 
 
