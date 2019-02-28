@@ -108,6 +108,8 @@ void removeRangesFromMetadata(std::shared_ptr<mdutils::MDInfo> mdinfo)
   SmallVector<std::shared_ptr<mdutils::MDInfo>, 1> list({mdinfo});
   while (list.size() > 0) {
     std::shared_ptr<mdutils::MDInfo> cur = list.pop_back_val();
+    if (!cur.get())
+      continue;
     if (mdutils::InputInfo *ii = dyn_cast<mdutils::InputInfo>(cur.get())) {
       ii->IRange.reset();
     } else if (mdutils::StructInfo *si = dyn_cast<mdutils::StructInfo>(cur.get())){

@@ -1,4 +1,4 @@
-#include <sstream>
+#include <cctype>
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Debug.h"
 #include "AnnotationParser.h"
@@ -21,15 +21,34 @@ void AnnotationParser::reset()
 bool AnnotationParser::parseAnnotationString(StringRef annstr)
 {
   reset();
+  sstream = std::istringstream(annstr.substr(0, annstr.size()-1));
   
-  std::istringstream strstm(annstr.substr(0, annstr.size()-1));
+  bool res;
+  if (annstr.find('(') == StringRef::npos)
+    res = parseOldSyntax();
+  else
+    res = parseNewSyntax();
+  if (res)
+    error = "";
+  return res;
+}
 
+
+StringRef AnnotationParser::lastError()
+{
+  return error;
+}
+
+
+bool AnnotationParser::parseOldSyntax()
+{
+  error = "Somebody used the old syntax and they should stop.";
   bool readNumBits = true;
   std::string head;
-  strstm >> head;
+  sstream >> head;
   if (head.find("target:") == 0) {
     target = head.substr(7); // strlen("target:") == 7
-    strstm >> head;
+    sstream >> head;
     isTarget = true;
   }
   if (head == "no_float" || head == "force_no_float") {
@@ -37,7 +56,7 @@ bool AnnotationParser::parseAnnotationString(StringRef annstr)
       backtracking = false;
     else
       backtracking = true;
-    strstm >> head;
+    sstream >> head;
   }
   if (head == "range")
     readNumBits = false;
@@ -49,11 +68,11 @@ bool AnnotationParser::parseAnnotationString(StringRef annstr)
 
   if (readNumBits) {
     int intbits, fracbits;
-    strstm >> intbits >> fracbits;
-    if (!strstm.fail()) {
+    sstream >> intbits >> fracbits;
+    if (!sstream.fail()) {
       std::string signedflg;
-      strstm >> signedflg;
-      if (!strstm.fail() && signedflg == "unsigned") {
+      sstream >> signedflg;
+      if (!sstream.fail() && signedflg == "unsigned") {
         info->IType.reset(new mdutils::FPType(intbits + fracbits, fracbits, false));
       } else {
         info->IType.reset(new mdutils::FPType(intbits + fracbits, fracbits, true));
@@ -63,15 +82,15 @@ bool AnnotationParser::parseAnnotationString(StringRef annstr)
 
   // Look for Range info
   double Min, Max;
-  strstm >> Min >> Max;
-  if (!strstm.fail()) {
+  sstream >> Min >> Max;
+  if (!sstream.fail()) {
     info->IRange.reset(new mdutils::Range(Min, Max));
     DEBUG(dbgs() << "Range found: [" << Min << ", " << Max << "]\n");
 
     // Look for initial error
     double Error;
-    strstm >> Error;
-    if (!strstm.fail()) {
+    sstream >> Error;
+    if (!sstream.fail()) {
       DEBUG(dbgs() << "Initial error found " << Error << "\n");
       info->IError.reset(new double(Error));
     }
@@ -81,7 +100,234 @@ bool AnnotationParser::parseAnnotationString(StringRef annstr)
 }
 
 
-StringRef AnnotationParser::lastError()
+bool AnnotationParser::parseNewSyntax()
 {
-  return "Syntax Error";
+  sstream.unsetf(std::ios_base::skipws);
+  char next = skipWhitespace();
+  sstream.putback(next);
+  
+  while (next != '\0') {
+    if (peek("target")) {
+      if (!expect("(")) return false;
+      if (!expectString(target)) return false;
+      if (!expect(")")) return false;
+      
+    } else if (peek("backtracking")) {
+      if (!expect("(")) return false;
+      if (!expect(")")) return false;
+      backtracking = true;
+      
+    } else if (peek("struct")) {
+      if (!parseStruct(metadata)) return false;
+      
+    } else if (peek("scalar")) {
+      if (!parseScalar(metadata)) return false;
+      
+    } else {
+      error = "Unknown identifier at character index " + std::to_string(sstream.tellg());
+      return false;
+    }
+    
+    next = skipWhitespace();
+    sstream.putback(next);
+  }
+  
+  if (metadata.get() == nullptr) {
+    error = "scalar() or struct() top-level specifiers missing";
+    return false;
+  }
+  return true;
+}
+
+
+bool AnnotationParser::parseScalar(std::shared_ptr<MDInfo>& thisMd)
+{
+  if (!expect("(")) return false;
+  
+  if (thisMd.get() != nullptr) {
+    error = "Duplicated content definition in this context";
+    return false;
+  }
+  InputInfo *ii = new InputInfo();
+  thisMd.reset(ii);
+  
+  while (!peek(")")) {
+    if (peek("range")) {
+      ii->IRange.reset(new Range());
+      if (!expect("(")) return false;
+      if (!expectReal(ii->IRange->Min)) return false;
+      if (!expect(",")) return false;
+      if (!expectReal(ii->IRange->Max)) return false;
+      if (!expect(")")) return false;
+      
+    } else if (peek("type")) {
+      if (!expect("(")) return false;
+      bool isSignd = true;
+      int64_t total, frac;
+      if (!peek("signed")) {
+        if (peek("unsigned")) {
+          isSignd = false;
+        }
+      }
+      if (!expectInteger(total)) return false;
+      if (!expectInteger(frac)) return false;
+      if (!expect(")")) return false;
+      ii->IType.reset(new FPType(total, frac, isSignd));
+      
+    } else if (peek("error")) {
+      ii->IError = std::make_shared<double>(0);
+      if (!expect("(")) return false;
+      if (!expectReal(*(ii->IError))) return false;
+      if (!expect(")")) return false;
+      
+    } else {
+      error = "Unknown identifier at character index " + std::to_string(sstream.tellg());
+      return false;
+    }
+  }
+  return true;
+}
+
+
+bool AnnotationParser::parseStruct(std::shared_ptr<MDInfo>& thisMd)
+{
+  if (!expect("(")) return false;
+  if (thisMd.get() != nullptr) {
+    error = "Duplicated content definition in this context";
+    return false;
+  }
+  std::vector<std::shared_ptr<MDInfo>> elems;
+  
+  while (!peek(")")) {
+    if (peek("scalar")) {
+      std::shared_ptr<MDInfo> tmp;
+      if (!parseScalar(tmp)) return false;
+      elems.push_back(tmp);
+      
+    } else if (peek("struct")) {
+      std::shared_ptr<MDInfo> tmp;
+      if (!parseStruct(tmp)) return false;
+      elems.push_back(tmp);
+      
+    } else if (peek("void")) {
+      if (!expect("(")) return false;
+      if (!expect(")")) return false;
+      elems.push_back(nullptr);
+      
+    } else {
+      error = "Unknown identifier at character index " + std::to_string(sstream.tellg());
+      return false;
+    }
+  }
+  
+  if (elems.size() == 0) {
+    error = "Empty structures not allowed";
+    return false;
+  }
+  StructInfo *si = new StructInfo(elems);
+  thisMd.reset(si);
+  return true;
+}
+
+
+char AnnotationParser::skipWhitespace()
+{
+  char tmp;
+  sstream >> tmp;
+  while (tmp != '\0' && (isblank(tmp) || iscntrl(tmp)))
+    sstream >> tmp;
+  return tmp;
+}
+
+
+bool AnnotationParser::expect(std::string kw)
+{
+  char next = skipWhitespace();
+  error = "Expected " + kw + " at character index " + std::to_string((int)(sstream.tellg())-1);
+  if (next == '\0')
+    return false;
+  int i = 0;
+  while (i < kw.size() && next != '\0' && next == kw[i]) {
+    i++;
+    sstream >> next;
+  }
+  sstream.putback(next);
+  return i == kw.size();
+}
+
+
+bool AnnotationParser::expectString(std::string& res)
+{
+  char next = skipWhitespace();
+  error = "Expected string at character index " + std::to_string((int)(sstream.tellg())-1);
+  res = "";
+  if (next != '"')
+    return false;
+  sstream >> next;
+  while (next != '"' && next != '\0') {
+    if (next == '\\') {
+      sstream >> next;
+      if (next != '\\' || next != '"')
+        return false;
+    }
+    res.append(&next, 1);
+    sstream >> next;
+  }
+  if (next == '"')
+    return true;
+  return false;
+}
+
+
+bool AnnotationParser::expectInteger(int64_t& res)
+{
+  char next = skipWhitespace();
+  error = "Expected integer at character index " + std::to_string((int)(sstream.tellg())-1);
+  bool neg = false;
+  int base = 10;
+  if (next == '+') {
+    sstream >> next;
+  } else if (next == '-') {
+    neg = true;
+    sstream >> next;
+  }
+  if (next == '0') {
+    base = 8;
+    sstream >> next;
+    if (next == 'x') {
+      base = 16;
+      sstream >> next;
+    }
+  }
+  if (!isnumber(next))
+    return false;
+  res = 0;
+  while (isnumber(next) || (base == 16 ? isxdigit(next) : false)) {
+    res *= base;
+    if (next > '9')
+      res += toupper(next) - 'A' + 10;
+    else
+      res += next - '0';
+    sstream >> next;
+  }
+  sstream.putback(next);
+  if (neg)
+    res = -res;
+  return true;
+}
+
+
+bool AnnotationParser::expectReal(double& res)
+{
+  char next = skipWhitespace();
+  error = "Expected real at character index " + std::to_string((int)(sstream.tellg())-1);
+  sstream.putback(next);
+  std::streampos pos = sstream.tellg();
+  sstream >> res;
+  if (sstream.fail()) {
+    sstream.clear();
+    sstream.seekg(pos);
+    return false;
+  }
+  return true;
 }

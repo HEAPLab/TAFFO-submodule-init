@@ -100,8 +100,12 @@ bool TaffoInitializer::parseAnnotation(SmallPtrSetImpl<Value *>& variables,
 
   StringRef annstr = annoStr->getAsString();
   AnnotationParser parser;
-  if (!parser.parseAnnotationString(annstr))
+  if (!parser.parseAnnotationString(annstr)) {
+    errs() << "TAFFO annnotation parser syntax error: \n";
+    errs() << "  In annotation: \"" << annstr << "\"\n";
+    errs() << "  " << parser.lastError() << "\n";
     return false;
+  }
   vi.fixpTypeRootDistance = 0;
   vi.isRoot = true;
   vi.isBacktrackingNode = parser.backtracking;
