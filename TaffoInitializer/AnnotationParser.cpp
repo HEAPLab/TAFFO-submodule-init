@@ -11,8 +11,7 @@ using namespace mdutils;
 
 void AnnotationParser::reset()
 {
-  target = "";
-  isTarget = false;
+  target = None;
   backtracking = false;
   metadata.reset();
 }
@@ -49,7 +48,6 @@ bool AnnotationParser::parseOldSyntax()
   if (head.find("target:") == 0) {
     target = head.substr(7); // strlen("target:") == 7
     sstream >> head;
-    isTarget = true;
   }
   if (head == "no_float" || head == "force_no_float") {
     if (head == "no_float")
@@ -108,9 +106,11 @@ bool AnnotationParser::parseNewSyntax()
   
   while (next != '\0') {
     if (peek("target")) {
+      std::string tgt;
       if (!expect("(")) return false;
-      if (!expectString(target)) return false;
+      if (!expectString(tgt)) return false;
       if (!expect(")")) return false;
+      target = tgt;
       
     } else if (peek("backtracking")) {
       if (!expect("(")) return false;

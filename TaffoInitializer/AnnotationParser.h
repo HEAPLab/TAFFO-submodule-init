@@ -41,8 +41,7 @@ class AnnotationParser {
   bool expectBoolean(bool& res);
   
 public:
-  std::string target;
-  bool isTarget;
+  llvm::Optional<std::string> target;
   bool backtracking;
   std::shared_ptr<mdutils::MDInfo> metadata;
   

@@ -111,7 +111,7 @@ bool TaffoInitializer::parseAnnotation(SmallPtrSetImpl<Value *>& variables,
   vi.isBacktrackingNode = parser.backtracking;
   vi.metadata = parser.metadata;
   if (isTarget)
-    *isTarget = parser.isTarget;
+    *isTarget = parser.target.hasValue();
   vi.target = parser.target;
 
   if (Instruction *toconv = dyn_cast<Instruction>(instr)) {
