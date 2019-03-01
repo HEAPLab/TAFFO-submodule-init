@@ -299,7 +299,7 @@ bool AnnotationParser::expectInteger(int64_t& res)
       sstream >> next;
     }
   }
-  if (!isnumber(next))
+  if (!isdigit(next))
     return false;
   res = 0;
   while (isnumber(next) || (base == 16 ? isxdigit(next) : false)) {
