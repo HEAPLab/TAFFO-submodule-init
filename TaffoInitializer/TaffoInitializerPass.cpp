@@ -150,6 +150,7 @@ void TaffoInitializer::setMetadataOfValue(Value *v)
   }
 }
 
+
 void TaffoInitializer::setFunctionArgsMetadata(Module &m)
 {
   std::vector<mdutils::MDInfo *> iiPVec;
@@ -478,6 +479,7 @@ void TaffoInitializer::printConversionQueue(std::vector<Value*> vals)
     errs() << "conversion queue:\n";
     for (Value *val: vals) {
       errs() << "bt=" << valueInfo(val)->isBacktrackingNode << " ";
+      errs() << "md=" << valueInfo(val)->metadata->toString() << " ";
       errs() << "[";
       for (Value *rootv: valueInfo(val)->roots) {
         rootv->print(errs());

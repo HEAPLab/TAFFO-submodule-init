@@ -81,7 +81,7 @@ struct TaffoInitializer : public llvm::ModulePass {
 
   bool hasInfo(llvm::Value *val) {
     return info.find(val) != info.end();
-};
+  };
 };
 
 
