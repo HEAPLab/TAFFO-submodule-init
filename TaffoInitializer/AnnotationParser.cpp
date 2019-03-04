@@ -302,7 +302,7 @@ bool AnnotationParser::expectInteger(int64_t& res)
   if (!isdigit(next))
     return false;
   res = 0;
-  while (isnumber(next) || (base == 16 ? isxdigit(next) : false)) {
+  while (isdigit(next) || (base == 16 ? isxdigit(next) : false)) {
     res *= base;
     if (next > '9')
       res += toupper(next) - 'A' + 10;
