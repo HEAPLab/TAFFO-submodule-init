@@ -113,9 +113,12 @@ bool AnnotationParser::parseNewSyntax()
       target = tgt;
       
     } else if (peek("backtracking")) {
-      if (!expect("(")) return false;
-      if (!expect(")")) return false;
-      backtracking = true;
+      if (peek("(")) {
+        if (!expectBoolean(backtracking)) return false;
+        if (!expect(")")) return false;
+      } else {
+        backtracking = true;
+      }
       
     } else if (peek("struct")) {
       if (!parseStruct(metadata)) return false;
@@ -191,14 +194,21 @@ bool AnnotationParser::parseScalar(std::shared_ptr<MDInfo>& thisMd)
 
 bool AnnotationParser::parseStruct(std::shared_ptr<MDInfo>& thisMd)
 {
-  if (!expect("(")) return false;
+  if (!expect("[")) return false;
   if (thisMd.get() != nullptr) {
     error = "Duplicated content definition in this context";
     return false;
   }
   std::vector<std::shared_ptr<MDInfo>> elems;
   
-  while (!peek(")")) {
+  bool first = true;
+  while (!peek("]")) {
+    if (first) {
+      first = false;
+    } else {
+      if (!expect(",")) return false;
+    }
+    
     if (peek("scalar")) {
       std::shared_ptr<MDInfo> tmp;
       if (!parseScalar(tmp)) return false;
@@ -210,8 +220,6 @@ bool AnnotationParser::parseStruct(std::shared_ptr<MDInfo>& thisMd)
       elems.push_back(tmp);
       
     } else if (peek("void")) {
-      if (!expect("(")) return false;
-      if (!expect(")")) return false;
       elems.push_back(nullptr);
       
     } else {
@@ -261,19 +269,19 @@ bool AnnotationParser::expectString(std::string& res)
   char next = skipWhitespace();
   error = "Expected string at character index " + std::to_string((int)(sstream.tellg())-1);
   res = "";
-  if (next != '"')
+  if (next != '\'')
     return false;
   sstream >> next;
-  while (next != '"' && next != '\0') {
-    if (next == '\\') {
+  while (next != '\'' && next != '\0') {
+    if (next == '@') {
       sstream >> next;
-      if (next != '\\' || next != '"')
+      if (next != '@' && next != '\'')
         return false;
     }
     res.append(&next, 1);
     sstream >> next;
   }
-  if (next == '"')
+  if (next == '\'')
     return true;
   return false;
 }
@@ -330,4 +338,20 @@ bool AnnotationParser::expectReal(double& res)
     return false;
   }
   return true;
+}
+
+
+bool AnnotationParser::expectBoolean(bool& res)
+{
+  char next = skipWhitespace();
+  error = "Expected boolean at character index " + std::to_string((int)(sstream.tellg())-1);
+  sstream.putback(next);
+  if (peek("true") || peek("yes")) {
+    res = true;
+    return true;
+  } else if (peek("false") || peek("no")) {
+    res = false;
+    return true;
+  }
+  return false;
 }
