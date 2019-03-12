@@ -1,3 +1,4 @@
+#include <cmath>
 #include "llvm/Pass.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Constants.h"
@@ -16,8 +17,7 @@
 #include <llvm/Transforms/Utils/ValueMapper.h>
 #include <llvm/Transforms/Utils/Cloning.h>
 #include "TaffoInitializerPass.h"
-#include <cmath>
-
+#include "TypeUtils.h"
 #include "Metadata.h"
 
 
@@ -32,23 +32,6 @@ static RegisterPass<TaffoInitializer> X(
   "TAFFO Framework Initialization Stage",
   false /* does not affect the CFG */,
   true /* Optimization Pass (sorta) */);
-
-
-Type *fullyUnwrapPointerOrArrayType(Type *srct)
-{
-  if (srct->isPointerTy()) {
-    return fullyUnwrapPointerOrArrayType(srct->getPointerElementType());
-  } else if (srct->isArrayTy()) {
-    return fullyUnwrapPointerOrArrayType(srct->getArrayElementType());
-  }
-  return srct;
-}
-
-
-bool isFloatType(Type *srct)
-{
-  return fullyUnwrapPointerOrArrayType(srct)->isFloatingPointTy();
-}
 
 
 bool TaffoInitializer::runOnModule(Module &m)
