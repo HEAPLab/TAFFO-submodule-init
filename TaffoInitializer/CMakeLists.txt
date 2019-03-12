@@ -17,4 +17,4 @@ endif()
 set_property(TARGET TaffoInitializer PROPERTY CXX_STANDARD 11)
 set_property(TARGET TaffoInitializer PROPERTY CXX_STANDARD_REQUIRED ON)
 
-target_link_libraries(TaffoInitializer MDUtils)
+target_link_libraries(TaffoInitializer TaffoUtils)
