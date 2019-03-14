@@ -117,6 +117,19 @@ bool TaffoInitializer::parseAnnotation(SmallPtrSetImpl<Value *>& variables,
   if (Instruction *toconv = dyn_cast<Instruction>(instr)) {
     variables.insert(toconv->getOperand(0));
     *valueInfo(toconv->getOperand(0)) = vi;
+    
+  } else if (Function *fun = dyn_cast<Function>(instr)) {
+    if (!fun->getReturnType()) {
+      errs() << "Warning: annotation found on a void function\n";
+    } else {
+      for (auto user: fun->users()) {
+        if (!(isa<CallInst>(user) || isa<InvokeInst>(user)))
+          continue;
+        variables.insert(user);
+        *valueInfo(user) = vi;
+      }
+    }
+    
   } else {
     variables.insert(instr);
     *valueInfo(instr) = vi;
@@ -131,15 +144,15 @@ void TaffoInitializer::removeNoFloatTy(SmallPtrSetImpl<Value *> &res)
   for (auto it: res) {
     Type *ty;
 
-    AllocaInst *alloca;
-    GlobalVariable *global;
-    if ((alloca = dyn_cast<AllocaInst>(it))) {
+    if (AllocaInst *alloca = dyn_cast<AllocaInst>(it)) {
       ty = alloca->getAllocatedType();
-    } else if ((global = dyn_cast<GlobalVariable>(it))) {
+    } else if (GlobalVariable *global = dyn_cast<GlobalVariable>(it)) {
       ty = global->getType();
+    } else if (isa<CallInst>(it) || isa<InvokeInst>(it)) {
+      ty = it->getType();
     } else {
       DEBUG(dbgs() << "annotated instruction " << *it <<
-        " not an alloca or a global, ignored\n");
+        " not an alloca or a global or a call/invoke, ignored\n");
       res.erase(it);
       continue;
     }

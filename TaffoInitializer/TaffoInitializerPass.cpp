@@ -41,7 +41,8 @@ bool TaffoInitializer::runOnModule(Module &m)
   llvm::SmallPtrSet<llvm::Value *, 32> local;
   llvm::SmallPtrSet<llvm::Value *, 32> global;
   readAllLocalAnnotations(m, local);
-  readGlobalAnnotations(m, global);
+  readGlobalAnnotations(m, global, true);
+  readGlobalAnnotations(m, global, false);
 
   std::vector<Value*> rootsa(local.begin(), local.end());
   rootsa.insert(rootsa.begin(), global.begin(), global.end());
