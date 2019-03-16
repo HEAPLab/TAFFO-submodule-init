@@ -61,7 +61,7 @@ bool AnnotationParser::parseOldSyntax()
   else
     return false;
   
-  mdutils::InputInfo *info = new mdutils::InputInfo();
+  mdutils::InputInfo *info = new mdutils::InputInfo(nullptr, nullptr, nullptr, true);
   metadata.reset(info);
 
   if (readNumBits) {
@@ -151,7 +151,7 @@ bool AnnotationParser::parseScalar(std::shared_ptr<MDInfo>& thisMd)
     error = "Duplicated content definition in this context";
     return false;
   }
-  InputInfo *ii = new InputInfo();
+  InputInfo *ii = new InputInfo(nullptr, nullptr, nullptr, true);
   thisMd.reset(ii);
   
   while (!peek(")")) {
@@ -182,6 +182,9 @@ bool AnnotationParser::parseScalar(std::shared_ptr<MDInfo>& thisMd)
       if (!expect("(")) return false;
       if (!expectReal(*(ii->IError))) return false;
       if (!expect(")")) return false;
+      
+    } else if (peek("disabled")) {
+      ii->IEnableConversion = false;
       
     } else {
       error = "Unknown identifier at character index " + std::to_string(sstream.tellg());

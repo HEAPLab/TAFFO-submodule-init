@@ -331,7 +331,7 @@ void TaffoInitializer::createInfoOfUser(Value *used, Value *user)
   } else {
     uinfo.metadata = mdutils::StructInfo::constructFromLLVMType(usert);
     if (uinfo.metadata.get() == nullptr) {
-      uinfo.metadata.reset(new mdutils::InputInfo());
+      uinfo.metadata.reset(new mdutils::InputInfo(nullptr, nullptr, nullptr, true));
     }
   }
   
