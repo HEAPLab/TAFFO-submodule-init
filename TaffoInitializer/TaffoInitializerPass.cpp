@@ -87,7 +87,7 @@ void TaffoInitializer::removeAnnotationCalls(std::vector<Value*>& q)
 }
 
 
-void removeRangesFromMetadata(std::shared_ptr<mdutils::MDInfo> mdinfo)
+void removeRangeErrorFromMetadata(std::shared_ptr<mdutils::MDInfo> mdinfo)
 {
   SmallVector<std::shared_ptr<mdutils::MDInfo>, 1> list({mdinfo});
   while (list.size() > 0) {
@@ -96,6 +96,7 @@ void removeRangesFromMetadata(std::shared_ptr<mdutils::MDInfo> mdinfo)
       continue;
     if (mdutils::InputInfo *ii = dyn_cast<mdutils::InputInfo>(cur.get())) {
       ii->IRange.reset();
+      ii->IError.reset();
     } else if (mdutils::StructInfo *si = dyn_cast<mdutils::StructInfo>(cur.get())){
       list.append(si->begin(), si->end());
     }
@@ -110,7 +111,7 @@ void TaffoInitializer::setMetadataOfValue(Value *v)
   
   if (!(vi.fixpTypeRootDistance == 0 || vi.isRoot)) {
     md.reset(md->clone());
-    removeRangesFromMetadata(md);
+    removeRangeErrorFromMetadata(md);
   }
 
   if (Instruction *inst = dyn_cast<Instruction>(v)) {
