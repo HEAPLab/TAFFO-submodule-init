@@ -117,9 +117,9 @@ void TaffoInitializer::setMetadataOfValue(Value *v)
     if (vi.target.hasValue())
       mdutils::MetadataManager::setTargetMetadata(*inst, vi.target.getValue());
 
-    if (mdutils::InputInfo *ii = dyn_cast<mdutils::InputInfo>(md.get())) {
+    if (mdutils::InputInfo *ii = dyn_cast_or_null<mdutils::InputInfo>(md.get())) {
       mdutils::MetadataManager::setInputInfoMetadata(*inst, *ii);
-    } else if (mdutils::StructInfo *si = dyn_cast<mdutils::StructInfo>(md.get())) {
+    } else if (mdutils::StructInfo *si = dyn_cast_or_null<mdutils::StructInfo>(md.get())) {
       mdutils::MetadataManager::setStructInfoMetadata(*inst, *si);
     }
   } else if (GlobalObject *con = dyn_cast<GlobalObject>(v)) {
@@ -326,7 +326,7 @@ void TaffoInitializer::createInfoOfUser(Value *used, Value *user)
   Type *usert = fullyUnwrapPointerOrArrayType(user->getType());
   bool copyok = (usedt == usert);
   copyok |= !usedt->isStructTy() && !usert->isStructTy();
-  if (copyok) {
+  if (copyok && vinfo.metadata != nullptr) {
     uinfo.metadata.reset(vinfo.metadata->clone());
   } else {
     uinfo.metadata = mdutils::StructInfo::constructFromLLVMType(usert);
@@ -420,7 +420,6 @@ Function* TaffoInitializer::createFunctionAndQueue(CallSite *call, SmallPtrSetIm
       
       // Mark the alloca used for the argument (in O0 opt lvl)
       // let it be a root
-      allocaVi.metadata.reset(callVi.metadata->clone());
       allocaVi.fixpTypeRootDistance = 0;
       allocaVi.isRoot = true;
       roots.push_back(newIt->user_begin()->getOperand(1));
