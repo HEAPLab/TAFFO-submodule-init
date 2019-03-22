@@ -386,6 +386,18 @@ void TaffoInitializer::generateFunctionSpace(std::vector<Value *> &vals, SmallPt
     for (Value *v : newVals) {
       setMetadataOfValue(v);
     }
+    
+    /* Reconstruct the value info for the values which are in the top-level
+     * conversion queue and in the oldF
+     * Allows us to properly process call functions */
+    for (BasicBlock& bb: *newF) {
+      for (Instruction& i: bb) {
+        if (mdutils::MDInfo *mdi = mdutils::MetadataManager::getMetadataManager().retrieveMDInfo(&i)) {
+          newVals.push_back(&i);
+          valueInfo(&i)->metadata.reset(mdi->clone());
+        }
+      }
+    }
 
     if (callTrace.count(oldF)) {
       continue;
