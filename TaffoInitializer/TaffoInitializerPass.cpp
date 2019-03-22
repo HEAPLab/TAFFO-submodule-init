@@ -34,6 +34,10 @@ static RegisterPass<TaffoInitializer> X(
   true /* Optimization Pass (sorta) */);
 
 
+llvm::cl::opt<bool> ManualFunctionCloning("manualclone",
+    llvm::cl::desc("Enables function cloning only for annotated functions"), llvm::cl::init(false));
+
+
 bool TaffoInitializer::runOnModule(Module &m)
 {
   DEBUG_WITH_TYPE(DEBUG_ANNOTATION, printAnnotatedObj(m));
@@ -346,6 +350,12 @@ void TaffoInitializer::generateFunctionSpace(std::vector<Value *> &vals, SmallPt
   for (Value *v: vals) {
     if (!(isa<CallInst>(v) || isa<InvokeInst>(v)))
       continue;
+    if (ManualFunctionCloning) {
+      if (!(hasInfo(v) && valueInfo(v)->isRoot)) {
+        DEBUG(dbgs() << "skipped cloning of function from call " << *v << "\n");
+        continue;
+      }
+    }
     CallSite *call = new CallSite(v);
     
     Function *oldF = call->getCalledFunction();
