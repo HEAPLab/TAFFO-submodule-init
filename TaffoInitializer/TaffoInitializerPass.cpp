@@ -317,7 +317,7 @@ void TaffoInitializer::createInfoOfUser(Value *used, Value *user)
   ValueInfo &uinfo = *valueInfo(user);
   if (uinfo.fixpTypeRootDistance <= std::max(vinfo.fixpTypeRootDistance, vinfo.fixpTypeRootDistance+1))
     return;
-  
+
   /* Do not copy metadata in case of type conversions from struct to
    * non-struct and vice-versa.
    * We could check the instruction type and copy the correct type
@@ -326,7 +326,7 @@ void TaffoInitializer::createInfoOfUser(Value *used, Value *user)
   Type *usedt = fullyUnwrapPointerOrArrayType(used->getType());
   Type *usert = fullyUnwrapPointerOrArrayType(user->getType());
   bool copyok = (usedt == usert);
-  copyok |= !usedt->isStructTy() && !usert->isStructTy();
+  copyok |= (!usedt->isStructTy() && !usert->isStructTy()) || isa<StoreInst>(user);
   if (copyok && vinfo.metadata != nullptr) {
     uinfo.metadata.reset(vinfo.metadata->clone());
   } else {
