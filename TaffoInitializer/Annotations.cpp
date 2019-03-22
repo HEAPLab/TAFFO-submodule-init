@@ -119,15 +119,12 @@ bool TaffoInitializer::parseAnnotation(SmallPtrSetImpl<Value *>& variables,
     *valueInfo(toconv->getOperand(0)) = vi;
     
   } else if (Function *fun = dyn_cast<Function>(instr)) {
-    if (!fun->getReturnType()) {
-      errs() << "Warning: annotation found on a void function\n";
-    } else {
-      for (auto user: fun->users()) {
-        if (!(isa<CallInst>(user) || isa<InvokeInst>(user)))
-          continue;
-        variables.insert(user);
-        *valueInfo(user) = vi;
-      }
+    enabledFunctions.insert(fun);
+    for (auto user: fun->users()) {
+      if (!(isa<CallInst>(user) || isa<InvokeInst>(user)))
+        continue;
+      variables.insert(user);
+      *valueInfo(user) = vi;
     }
     
   } else {
@@ -150,6 +147,8 @@ void TaffoInitializer::removeNoFloatTy(SmallPtrSetImpl<Value *> &res)
       ty = global->getType();
     } else if (isa<CallInst>(it) || isa<InvokeInst>(it)) {
       ty = it->getType();
+      if (ty->isVoidTy())
+        continue;
     } else {
       DEBUG(dbgs() << "annotated instruction " << *it <<
         " not an alloca or a global or a call/invoke, ignored\n");

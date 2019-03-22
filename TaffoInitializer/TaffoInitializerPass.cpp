@@ -350,12 +350,6 @@ void TaffoInitializer::generateFunctionSpace(std::vector<Value *> &vals, SmallPt
   for (Value *v: vals) {
     if (!(isa<CallInst>(v) || isa<InvokeInst>(v)))
       continue;
-    if (ManualFunctionCloning) {
-      if (!(hasInfo(v) && valueInfo(v)->isRoot)) {
-        DEBUG(dbgs() << "skipped cloning of function from call " << *v << "\n");
-        continue;
-      }
-    }
     CallSite *call = new CallSite(v);
     
     Function *oldF = call->getCalledFunction();
@@ -365,6 +359,12 @@ void TaffoInitializer::generateFunctionSpace(std::vector<Value *> &vals, SmallPt
     }
     if(isSpecialFunction(oldF))
       continue;
+    if (ManualFunctionCloning) {
+      if (enabledFunctions.count(oldF) == 0) {
+        DEBUG(dbgs() << "skipped cloning of function from call " << *v << "\n");
+        continue;
+      }
+    }
 
     std::vector<Value*> newVals;
     Function *newF = createFunctionAndQueue(call, global, newVals);

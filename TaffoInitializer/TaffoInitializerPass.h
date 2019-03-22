@@ -43,6 +43,7 @@ struct TaffoInitializer : public llvm::ModulePass {
 
   /* to not be accessed directly, use valueInfo() */
   llvm::DenseMap<llvm::Value *, std::shared_ptr<ValueInfo>> info;
+  llvm::SmallPtrSet<llvm::Function *, 32> enabledFunctions;
   
   TaffoInitializer(): ModulePass(ID) { }
   bool runOnModule(llvm::Module &M) override;
