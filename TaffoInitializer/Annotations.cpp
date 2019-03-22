@@ -58,12 +58,15 @@ void TaffoInitializer::readLocalAnnotations(llvm::Function &f, llvm::SmallPtrSet
         continue;
 
       if (call->getCalledFunction()->getName() == "llvm.var.annotation") {
-        parseAnnotation(variables, cast<ConstantExpr>(iIt->getOperand(1)), iIt->getOperand(0), &found);
+	bool isTarget = false;
+        parseAnnotation(variables, cast<ConstantExpr>(iIt->getOperand(1)), iIt->getOperand(0), &isTarget);
+	found |= isTarget;
       }
     }
   }
-  if (found)
+  if (found) {
     mdutils::MetadataManager::setStartingPoint(f);
+  }
 }
 
 

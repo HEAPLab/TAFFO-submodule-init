@@ -91,7 +91,7 @@ void TaffoInitializer::removeAnnotationCalls(std::vector<Value*>& q)
 }
 
 
-void removeRangesFromMetadata(std::shared_ptr<mdutils::MDInfo> mdinfo)
+void removeRangeErrorFromMetadata(std::shared_ptr<mdutils::MDInfo> mdinfo)
 {
   SmallVector<std::shared_ptr<mdutils::MDInfo>, 1> list({mdinfo});
   while (list.size() > 0) {
@@ -100,6 +100,7 @@ void removeRangesFromMetadata(std::shared_ptr<mdutils::MDInfo> mdinfo)
       continue;
     if (mdutils::InputInfo *ii = dyn_cast<mdutils::InputInfo>(cur.get())) {
       ii->IRange.reset();
+      ii->IError.reset();
     } else if (mdutils::StructInfo *si = dyn_cast<mdutils::StructInfo>(cur.get())){
       list.append(si->begin(), si->end());
     }
@@ -114,16 +115,16 @@ void TaffoInitializer::setMetadataOfValue(Value *v)
   
   if (!(vi.fixpTypeRootDistance == 0 || vi.isRoot)) {
     md.reset(md->clone());
-    removeRangesFromMetadata(md);
+    removeRangeErrorFromMetadata(md);
   }
 
   if (Instruction *inst = dyn_cast<Instruction>(v)) {
     if (vi.target.hasValue())
       mdutils::MetadataManager::setTargetMetadata(*inst, vi.target.getValue());
 
-    if (mdutils::InputInfo *ii = dyn_cast<mdutils::InputInfo>(md.get())) {
+    if (mdutils::InputInfo *ii = dyn_cast_or_null<mdutils::InputInfo>(md.get())) {
       mdutils::MetadataManager::setInputInfoMetadata(*inst, *ii);
-    } else if (mdutils::StructInfo *si = dyn_cast<mdutils::StructInfo>(md.get())) {
+    } else if (mdutils::StructInfo *si = dyn_cast_or_null<mdutils::StructInfo>(md.get())) {
       mdutils::MetadataManager::setStructInfoMetadata(*inst, *si);
     }
   } else if (GlobalObject *con = dyn_cast<GlobalObject>(v)) {
@@ -320,7 +321,7 @@ void TaffoInitializer::createInfoOfUser(Value *used, Value *user)
   ValueInfo &uinfo = *valueInfo(user);
   if (uinfo.fixpTypeRootDistance <= std::max(vinfo.fixpTypeRootDistance, vinfo.fixpTypeRootDistance+1))
     return;
-  
+
   /* Do not copy metadata in case of type conversions from struct to
    * non-struct and vice-versa.
    * We could check the instruction type and copy the correct type
@@ -329,8 +330,8 @@ void TaffoInitializer::createInfoOfUser(Value *used, Value *user)
   Type *usedt = fullyUnwrapPointerOrArrayType(used->getType());
   Type *usert = fullyUnwrapPointerOrArrayType(user->getType());
   bool copyok = (usedt == usert);
-  copyok |= !usedt->isStructTy() && !usert->isStructTy();
-  if (copyok) {
+  copyok |= (!usedt->isStructTy() && !usert->isStructTy()) || isa<StoreInst>(user);
+  if (copyok && vinfo.metadata != nullptr) {
     uinfo.metadata.reset(vinfo.metadata->clone());
   } else {
     uinfo.metadata = mdutils::StructInfo::constructFromLLVMType(usert);
@@ -442,7 +443,6 @@ Function* TaffoInitializer::createFunctionAndQueue(CallSite *call, SmallPtrSetIm
       
       // Mark the alloca used for the argument (in O0 opt lvl)
       // let it be a root
-      allocaVi.metadata.reset(callVi.metadata->clone());
       allocaVi.fixpTypeRootDistance = 0;
       allocaVi.isRoot = true;
       roots.push_back(newIt->user_begin()->getOperand(1));
