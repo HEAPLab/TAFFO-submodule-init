@@ -36,6 +36,8 @@ static RegisterPass<TaffoInitializer> X(
 
 llvm::cl::opt<bool> ManualFunctionCloning("manualclone",
     llvm::cl::desc("Enables function cloning only for annotated functions"), llvm::cl::init(false));
+llvm::cl::opt<bool> VRACompatibilityMode("vracompat",
+    llvm::cl::desc("Enables VRA-less mode (adds metadata on function arguments)"), llvm::cl::init(false));
 
 
 bool TaffoInitializer::runOnModule(Module &m)
@@ -122,9 +124,9 @@ void TaffoInitializer::setMetadataOfValue(Value *v)
     if (vi.target.hasValue())
       mdutils::MetadataManager::setTargetMetadata(*inst, vi.target.getValue());
 
-    if (mdutils::InputInfo *ii = dyn_cast_or_null<mdutils::InputInfo>(md.get())) {
+    if (mdutils::InputInfo *ii = dyn_cast<mdutils::InputInfo>(md.get())) {
       mdutils::MetadataManager::setInputInfoMetadata(*inst, *ii);
-    } else if (mdutils::StructInfo *si = dyn_cast_or_null<mdutils::StructInfo>(md.get())) {
+    } else if (mdutils::StructInfo *si = dyn_cast<mdutils::StructInfo>(md.get())) {
       mdutils::MetadataManager::setStructInfoMetadata(*inst, *si);
     }
   } else if (GlobalObject *con = dyn_cast<GlobalObject>(v)) {
@@ -331,7 +333,7 @@ void TaffoInitializer::createInfoOfUser(Value *used, Value *user)
   Type *usert = fullyUnwrapPointerOrArrayType(user->getType());
   bool copyok = (usedt == usert);
   copyok |= (!usedt->isStructTy() && !usert->isStructTy()) || isa<StoreInst>(user);
-  if (copyok && vinfo.metadata != nullptr) {
+  if (copyok) {
     uinfo.metadata.reset(vinfo.metadata->clone());
   } else {
     uinfo.metadata = mdutils::StructInfo::constructFromLLVMType(usert);
@@ -442,8 +444,9 @@ Function* TaffoInitializer::createFunctionAndQueue(CallSite *call, SmallPtrSetIm
       ValueInfo& argumentVi = *valueInfo(newIt);
       
       // Mark the alloca used for the argument (in O0 opt lvl)
-      // let it be a root
-      allocaVi.fixpTypeRootDistance = 0;
+      // let it be a root in VRA-less mode
+      allocaVi.metadata.reset(callVi.metadata->clone());
+      allocaVi.fixpTypeRootDistance = VRACompatibilityMode ? 0 : callVi.fixpTypeRootDistance+2;
       allocaVi.isRoot = true;
       roots.push_back(newIt->user_begin()->getOperand(1));
       
@@ -455,9 +458,9 @@ Function* TaffoInitializer::createFunctionAndQueue(CallSite *call, SmallPtrSetIm
                    << valueInfo(newIt->user_begin()->getOperand(1))->rangeError.Max << "\n";);
       */
       
-      // Mark the argument itself (set it as a new root as well)
+      // Mark the argument itself (set it as a new root as well in VRA-less mode)
       argumentVi.metadata.reset(callVi.metadata->clone());
-      argumentVi.fixpTypeRootDistance = 0;
+      argumentVi.fixpTypeRootDistance = VRACompatibilityMode ? 0 : callVi.fixpTypeRootDistance+1;
       argumentVi.isRoot = true;
     }
   }
