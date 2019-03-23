@@ -446,22 +446,25 @@ Function* TaffoInitializer::createFunctionAndQueue(CallSite *call, SmallPtrSetIm
       // Mark the alloca used for the argument (in O0 opt lvl)
       // let it be a root in VRA-less mode
       allocaVi.metadata.reset(callVi.metadata->clone());
-      allocaVi.fixpTypeRootDistance = VRACompatibilityMode ? 0 : callVi.fixpTypeRootDistance+2;
-      allocaVi.isRoot = true;
+      if (VRACompatibilityMode) {
+        allocaVi.fixpTypeRootDistance = 0;
+        allocaVi.isRoot = true;
+      } else {
+        allocaVi.fixpTypeRootDistance = callVi.fixpTypeRootDistance+2;
+      }
       roots.push_back(newIt->user_begin()->getOperand(1));
       
-      DEBUG(dbgs() << "\tArg nr. " << i << " processed\n");
-      /*
-      DEBUG(dbgs() << "\tArg nr. " << i << " has range [" << rng.Min << " , " << rng.Max << "]\n";);
-      DEBUG(dbgs() << *newIt->user_begin()->getOperand(1) <<" "
-                   << valueInfo(newIt->user_begin()->getOperand(1))->rangeError.Min << " - "
-                   << valueInfo(newIt->user_begin()->getOperand(1))->rangeError.Max << "\n";);
-      */
+      DEBUG(dbgs() << "  Arg nr. " << i << " processed, isRoot = " << allocaVi.isRoot << "\n");
+      DEBUG(dbgs() << "    md = " << allocaVi.metadata->toString() << "\n");
       
       // Mark the argument itself (set it as a new root as well in VRA-less mode)
       argumentVi.metadata.reset(callVi.metadata->clone());
-      argumentVi.fixpTypeRootDistance = VRACompatibilityMode ? 0 : callVi.fixpTypeRootDistance+1;
-      argumentVi.isRoot = true;
+      if (VRACompatibilityMode) {
+        argumentVi.fixpTypeRootDistance = 0;
+        argumentVi.isRoot = true;
+      } else {
+        argumentVi.fixpTypeRootDistance = callVi.fixpTypeRootDistance+1;
+      }
     }
   }
 
