@@ -321,29 +321,38 @@ void TaffoInitializer::createInfoOfUser(Value *used, Value *user)
 {
   ValueInfo vinfo = *valueInfo(used);
   ValueInfo &uinfo = *valueInfo(user);
-  if (uinfo.fixpTypeRootDistance <= std::max(vinfo.fixpTypeRootDistance, vinfo.fixpTypeRootDistance+1))
-    return;
-
-  /* Do not copy metadata in case of type conversions from struct to
-   * non-struct and vice-versa.
-   * We could check the instruction type and copy the correct type
-   * contained in the struct type or create a struct type with the
-   * correct type in the correct place, but is'a huge mess */
-  Type *usedt = fullyUnwrapPointerOrArrayType(used->getType());
-  Type *usert = fullyUnwrapPointerOrArrayType(user->getType());
-  bool copyok = (usedt == usert);
-  copyok |= (!usedt->isStructTy() && !usert->isStructTy()) || isa<StoreInst>(user);
-  if (copyok) {
-    uinfo.metadata.reset(vinfo.metadata->clone());
-  } else {
-    uinfo.metadata = mdutils::StructInfo::constructFromLLVMType(usert);
-    if (uinfo.metadata.get() == nullptr) {
-      uinfo.metadata.reset(new mdutils::InputInfo(nullptr, nullptr, nullptr, true));
-    }
-  }
   
-  uinfo.target = vinfo.target;
-  uinfo.fixpTypeRootDistance = std::max(vinfo.fixpTypeRootDistance, vinfo.fixpTypeRootDistance+1);
+  /* Copy metadata from the closest instruction to a root */
+  if (!(uinfo.fixpTypeRootDistance <= std::max(vinfo.fixpTypeRootDistance, vinfo.fixpTypeRootDistance+1))) {
+    /* Do not copy metadata in case of type conversions from struct to
+     * non-struct and vice-versa.
+     * We could check the instruction type and copy the correct type
+     * contained in the struct type or create a struct type with the
+     * correct type in the correct place, but is'a huge mess */
+    Type *usedt = fullyUnwrapPointerOrArrayType(used->getType());
+    Type *usert = fullyUnwrapPointerOrArrayType(user->getType());
+    bool copyok = (usedt == usert);
+    copyok |= (!usedt->isStructTy() && !usert->isStructTy()) || isa<StoreInst>(user);
+    if (copyok) {
+      uinfo.metadata.reset(vinfo.metadata->clone());
+    } else {
+      uinfo.metadata = mdutils::StructInfo::constructFromLLVMType(usert);
+      if (uinfo.metadata.get() == nullptr) {
+        uinfo.metadata.reset(new mdutils::InputInfo(nullptr, nullptr, nullptr, true));
+      }
+    }
+  
+    uinfo.target = vinfo.target;
+    uinfo.fixpTypeRootDistance = std::max(vinfo.fixpTypeRootDistance, vinfo.fixpTypeRootDistance+1);
+  }
+
+  /* The conversion enabling flag shall be true if at least one of the parents
+   * of the children has it enabled */
+  mdutils::InputInfo *iiu = dyn_cast_or_null<mdutils::InputInfo>(uinfo.metadata.get());
+  mdutils::InputInfo *iiv = dyn_cast_or_null<mdutils::InputInfo>(vinfo.metadata.get());
+  if (iiu && iiv && iiv->IEnableConversion) {
+    iiu->IEnableConversion = true;
+  }
 }
 
 
