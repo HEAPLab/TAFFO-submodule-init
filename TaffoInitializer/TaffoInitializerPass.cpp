@@ -373,7 +373,7 @@ void TaffoInitializer::generateFunctionSpace(std::vector<Value *> &vals, SmallPt
       continue;
     if (ManualFunctionCloning) {
       if (enabledFunctions.count(oldF) == 0) {
-        DEBUG(dbgs() << "skipped cloning of function from call " << *v << "\n");
+        DEBUG(dbgs() << "skipped cloning of function from call " << *v << ": function disabled\n");
         continue;
       }
     }
@@ -434,48 +434,52 @@ Function* TaffoInitializer::createFunctionAndQueue(CallSite *call, SmallPtrSetIm
       oldF->getName(), oldF->getParent());
 
   ValueToValueMapTy mapArgs; // Create Val2Val mapping and clone function
-  Function::arg_iterator newIt = newF->arg_begin();
-  Function::arg_iterator oldIt = oldF->arg_begin();
-  for (; oldIt != oldF->arg_end() ; oldIt++, newIt++) {
-    newIt->setName(oldIt->getName());
-    mapArgs.insert(std::make_pair(oldIt, newIt));
+  Function::arg_iterator newArgumentI = newF->arg_begin();
+  Function::arg_iterator oldArgumentI = oldF->arg_begin();
+  for (; oldArgumentI != oldF->arg_end() ; oldArgumentI++, newArgumentI++) {
+    newArgumentI->setName(oldArgumentI->getName());
+    mapArgs.insert(std::make_pair(oldArgumentI, newArgumentI));
   }
   SmallVector<ReturnInst*,100> returns;
   CloneFunctionInto(newF, oldF, mapArgs, true, returns);
   FunctionCloned++;
 
   std::vector<Value*> roots; //propagate fixp conversion
-  oldIt = oldF->arg_begin();
-  newIt = newF->arg_begin();
+  oldArgumentI = oldF->arg_begin();
+  newArgumentI = newF->arg_begin();
   DEBUG(dbgs() << "Create function from " << oldF->getName() << " to " << newF->getName() << "\n";);
-  for (int i=0; oldIt != oldF->arg_end() ; oldIt++, newIt++,i++) {
-    if (hasInfo(call->getInstruction()->getOperand(i))) {
-      ValueInfo& callVi = *valueInfo(call->getInstruction()->getOperand(i));
-      ValueInfo& allocaVi = *valueInfo(newIt->user_begin()->getOperand(1));
-      ValueInfo& argumentVi = *valueInfo(newIt);
-      
-      // Mark the alloca used for the argument (in O0 opt lvl)
-      // let it be a root in VRA-less mode
-      allocaVi.metadata.reset(callVi.metadata->clone());
-      if (VRACompatibilityMode) {
-        allocaVi.fixpTypeRootDistance = 0;
-        allocaVi.isRoot = true;
-      } else {
-        allocaVi.fixpTypeRootDistance = callVi.fixpTypeRootDistance+2;
-      }
-      roots.push_back(newIt->user_begin()->getOperand(1));
-      
-      DEBUG(dbgs() << "  Arg nr. " << i << " processed, isRoot = " << allocaVi.isRoot << "\n");
-      DEBUG(dbgs() << "    md = " << allocaVi.metadata->toString() << "\n");
-      
-      // Mark the argument itself (set it as a new root as well in VRA-less mode)
-      argumentVi.metadata.reset(callVi.metadata->clone());
-      if (VRACompatibilityMode) {
-        argumentVi.fixpTypeRootDistance = 0;
-        argumentVi.isRoot = true;
-      } else {
-        argumentVi.fixpTypeRootDistance = callVi.fixpTypeRootDistance+1;
-      }
+  for (int i=0; oldArgumentI != oldF->arg_end() ; oldArgumentI++, newArgumentI++, i++) {
+    Value *callOperand = call->getInstruction()->getOperand(i);
+    Value *allocaOfArgument = newArgumentI->user_begin()->getOperand(1);
+    
+    if (!hasInfo(callOperand))
+      continue;
+  
+    ValueInfo& callVi = *valueInfo(callOperand);
+    ValueInfo& allocaVi = *valueInfo(allocaOfArgument);
+    ValueInfo& argumentVi = *valueInfo(newArgumentI);
+    
+    // Mark the alloca used for the argument (in O0 opt lvl)
+    // let it be a root in VRA-less mode
+    allocaVi.metadata.reset(callVi.metadata->clone());
+    if (VRACompatibilityMode) {
+      allocaVi.fixpTypeRootDistance = 0;
+      allocaVi.isRoot = true;
+    } else {
+      allocaVi.fixpTypeRootDistance = callVi.fixpTypeRootDistance+2;
+    }
+    roots.push_back(allocaOfArgument);
+    
+    DEBUG(dbgs() << "  Arg nr. " << i << " processed, isRoot = " << allocaVi.isRoot << "\n");
+    DEBUG(dbgs() << "    md = " << allocaVi.metadata->toString() << "\n");
+    
+    // Mark the argument itself (set it as a new root as well in VRA-less mode)
+    argumentVi.metadata.reset(callVi.metadata->clone());
+    if (VRACompatibilityMode) {
+      argumentVi.fixpTypeRootDistance = 0;
+      argumentVi.isRoot = true;
+    } else {
+      argumentVi.fixpTypeRootDistance = callVi.fixpTypeRootDistance+1;
     }
   }
 
