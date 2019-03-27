@@ -149,25 +149,20 @@ void TaffoInitializer::setFunctionArgsMetadata(Module &m)
     DEBUG(dbgs() << "Processing function " << f.getName() << "\n");
     iiPVec.reserve(f.arg_size());
 
-    for (Argument &a : f.args()) {
+    for (const Argument &a : f.args()) {
       DEBUG(dbgs() << "Processing arg " << a << "\n");
       mdutils::MDInfo *ii = nullptr;
       for (const Use &u : a.uses()) {
         Value *sv = u.getUser();
         DEBUG(dbgs() << "Processing use " << *sv << "\n");
-        if (StoreInst *si = dyn_cast<StoreInst>(sv)) {
-	  AllocaInst *ai = dyn_cast<AllocaInst>(si->getPointerOperand());
-	  if (ai != nullptr && hasInfo(ai)) {
-	    DEBUG(dbgs() << "Info found on alloca.\n");
-	    ii = valueInfo(ai)->metadata.get();
-	  }
-	  if (ii == nullptr && hasInfo(si)) {
-	    DEBUG(dbgs() << "Info found on store.\n");
-            ii = valueInfo(si)->metadata.get();
-	  }
-	  if (ii != nullptr)
-	    break;
-	}
+        if (isa<StoreInst>(sv)) {
+          if (hasInfo(sv)) {
+            DEBUG(dbgs() << "Info found.\n");
+            ValueInfo &vi = *valueInfo(sv);
+            ii = vi.metadata.get();
+            break;
+          }
+        }
       }
       iiPVec.push_back(ii);
     }
@@ -429,30 +424,6 @@ void TaffoInitializer::generateFunctionSpace(std::vector<Value *> &vals, SmallPt
   }
 }
 
-void copyRangeErrorMetadata(std::shared_ptr<mdutils::MDInfo> dst,
-			    std::shared_ptr<mdutils::MDInfo> src)
-{
-  using namespace mdutils;
-  if (!dst || !src) return;
-  if (InputInfo *dstii = dyn_cast<InputInfo>(dst.get())) {
-    InputInfo *srcii = cast<InputInfo>(src.get());
-    dstii->IRange = srcii->IRange;
-    dstii->IError = srcii->IError;
-  } else if (StructInfo *dstsi = dyn_cast<StructInfo>(dst.get())) {
-    StructInfo *srcsi = cast<StructInfo>(src.get());
-    for (StructInfo::size_type fi = 0;
-	 fi < dstsi->size() && fi < srcsi->size(); ++fi) {
-      std::shared_ptr<MDInfo> srcfield = srcsi->getField(fi);
-      if (!srcfield)
-	continue;
-      std::shared_ptr<MDInfo> dstfield = dstsi->getField(fi);
-      if (!dstfield)
-	dstsi->setField(fi, srcfield);
-      else
-	copyRangeErrorMetadata(dstfield, srcfield);
-    }
-  }
-}
 
 Function* TaffoInitializer::createFunctionAndQueue(CallSite *call, SmallPtrSetImpl<Value *> &global,
     std::vector<Value *> &convQueue)
@@ -480,7 +451,7 @@ Function* TaffoInitializer::createFunctionAndQueue(CallSite *call, SmallPtrSetIm
   for (int i=0; oldArgumentI != oldF->arg_end() ; oldArgumentI++, newArgumentI++, i++) {
     Value *callOperand = call->getInstruction()->getOperand(i);
     Value *allocaOfArgument = newArgumentI->user_begin()->getOperand(1);
-
+    
     if (!hasInfo(callOperand))
       continue;
   
@@ -496,12 +467,6 @@ Function* TaffoInitializer::createFunctionAndQueue(CallSite *call, SmallPtrSetIm
       allocaVi.isRoot = true;
     } else {
       allocaVi.fixpTypeRootDistance = callVi.fixpTypeRootDistance+2;
-      // Get range and error from the old alloca
-      Value *allocaOfOldArgument = oldArgumentI->user_begin()->getOperand(1);
-      if (hasInfo(allocaOfOldArgument)) {
-	copyRangeErrorMetadata(allocaVi.metadata,
-			       valueInfo(allocaOfOldArgument)->metadata);
-      }
     }
     roots.push_back(allocaOfArgument);
     
