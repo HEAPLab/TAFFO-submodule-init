@@ -404,7 +404,7 @@ void TaffoInitializer::generateFunctionSpace(std::vector<Value *> &vals, SmallPt
      * Allows us to properly process call functions */
     for (BasicBlock& bb: *newF) {
       for (Instruction& i: bb) {
-        if (hasInfo(&i))
+        if (VRACompatibilityMode && hasInfo(&i))
           continue;
         if (mdutils::MDInfo *mdi = mdutils::MetadataManager::getMetadataManager().retrieveMDInfo(&i)) {
           newVals.push_back(&i);
