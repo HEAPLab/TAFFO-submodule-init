@@ -381,6 +381,7 @@ void TaffoInitializer::generateFunctionSpace(std::vector<Value *> &vals, SmallPt
     std::vector<Value*> newVals;
     Function *newF = createFunctionAndQueue(call, global, newVals);
     call->setCalledFunction(newF);
+    enabledFunctions.insert(newF);
 
     //Attach metadata
     MDNode *newFRef = MDNode::get(call->getInstruction()->getContext(),ValueAsMetadata::get(newF));
