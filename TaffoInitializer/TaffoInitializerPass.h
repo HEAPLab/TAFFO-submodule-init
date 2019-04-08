@@ -7,6 +7,7 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/IR/ValueMap.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Support/CommandLine.h"
@@ -42,7 +43,7 @@ struct TaffoInitializer : public llvm::ModulePass {
   static char ID;
 
   /* to not be accessed directly, use valueInfo() */
-  llvm::DenseMap<llvm::Value *, std::shared_ptr<ValueInfo>> info;
+  llvm::ValueMap<llvm::Value *, std::shared_ptr<ValueInfo>> info;
   llvm::SmallPtrSet<llvm::Function *, 32> enabledFunctions;
   
   TaffoInitializer(): ModulePass(ID) { }
@@ -76,7 +77,7 @@ struct TaffoInitializer : public llvm::ModulePass {
       info[val] = std::make_shared<ValueInfo>(ValueInfo());
       return info[val];
     } else {
-      return vi->getSecond();
+      return vi->second;
     }
   };
 
