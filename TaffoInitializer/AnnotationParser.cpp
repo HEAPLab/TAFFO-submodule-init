@@ -83,13 +83,13 @@ bool AnnotationParser::parseOldSyntax()
   sstream >> Min >> Max;
   if (!sstream.fail()) {
     info->IRange.reset(new mdutils::Range(Min, Max));
-    DEBUG(dbgs() << "Range found: [" << Min << ", " << Max << "]\n");
+    LLVM_DEBUG(dbgs() << "Range found: [" << Min << ", " << Max << "]\n");
 
     // Look for initial error
     double Error;
     sstream >> Error;
     if (!sstream.fail()) {
-      DEBUG(dbgs() << "Initial error found " << Error << "\n");
+      LLVM_DEBUG(dbgs() << "Initial error found " << Error << "\n");
       info->IError.reset(new double(Error));
     }
   }

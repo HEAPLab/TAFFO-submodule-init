@@ -153,8 +153,8 @@ void TaffoInitializer::removeNoFloatTy(SmallPtrSetImpl<Value *> &res)
       if (ty->isVoidTy())
         continue;
     } else {
-      DEBUG(dbgs() << "annotated instruction " << *it <<
-        " not an alloca or a global or a call/invoke, ignored\n");
+      LLVM_DEBUG(dbgs() << "annotated instruction " << *it <<
+        " not an alloca or a global, ignored\n");
       res.erase(it);
       continue;
     }
@@ -166,7 +166,7 @@ void TaffoInitializer::removeNoFloatTy(SmallPtrSetImpl<Value *> &res)
         ty = ty->getArrayElementType();
     }
     if (!ty->isFloatingPointTy()) {
-      DEBUG(dbgs() << "annotated instruction " << *it << " does not allocate a"
+      LLVM_DEBUG(dbgs() << "annotated instruction " << *it << " does not allocate a"
         " kind of float; ignored\n");
       res.erase(it);
     }

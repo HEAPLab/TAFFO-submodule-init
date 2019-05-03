@@ -66,7 +66,7 @@ bool TaffoInitializer::runOnModule(Module &m)
   SmallPtrSet<Function*, 10> callTrace;
   generateFunctionSpace(vals, global, callTrace);
 
-  DEBUG(printConversionQueue(vals));
+  LLVM_DEBUG(printConversionQueue(vals));
   setFunctionArgsMetadata(m);
 
   return true;
@@ -148,18 +148,18 @@ void TaffoInitializer::setFunctionArgsMetadata(Module &m)
 {
   std::vector<mdutils::MDInfo *> iiPVec;
   for (Function &f : m.functions()) {
-    DEBUG(dbgs() << "Processing function " << f.getName() << "\n");
+    LLVM_DEBUG(dbgs() << "Processing function " << f.getName() << "\n");
     iiPVec.reserve(f.arg_size());
 
     for (const Argument &a : f.args()) {
-      DEBUG(dbgs() << "Processing arg " << a << "\n");
+      LLVM_DEBUG(dbgs() << "Processing arg " << a << "\n");
       mdutils::MDInfo *ii = nullptr;
       for (const Use &u : a.uses()) {
         Value *sv = u.getUser();
-        DEBUG(dbgs() << "Processing use " << *sv << "\n");
+        LLVM_DEBUG(dbgs() << "Processing use " << *sv << "\n");
         if (isa<StoreInst>(sv)) {
           if (hasInfo(sv)) {
-            DEBUG(dbgs() << "Info found.\n");
+            LLVM_DEBUG(dbgs() << "Info found.\n");
             ValueInfo &vi = *valueInfo(sv);
             ii = vi.metadata.get();
             break;
@@ -187,7 +187,7 @@ void TaffoInitializer::buildConversionQueueForRootValues(
 
   size_t prevQueueSize = 0;
   while (prevQueueSize < queue.size()) {
-    DEBUG(dbgs() << "***** buildConversionQueueForRootValues iter " << prevQueueSize << " < " << queue.size() << "\n";);
+    LLVM_DEBUG(dbgs() << "***** buildConversionQueueForRootValues iter " << prevQueueSize << " < " << queue.size() << "\n";);
     prevQueueSize = queue.size();
 
     size_t next = 0;
@@ -368,14 +368,14 @@ void TaffoInitializer::generateFunctionSpace(std::vector<Value *> &vals, SmallPt
     
     Function *oldF = call->getCalledFunction();
     if (!oldF) {
-      DEBUG(dbgs() << "found bitcasted funcptr in " << *v << "\n");
+      LLVM_DEBUG(dbgs() << "found bitcasted funcptr in " << *v << "\n");
       assert(0 && "bitcasted function pointers and such not handled atm");
     }
     if(isSpecialFunction(oldF))
       continue;
     if (ManualFunctionCloning) {
       if (enabledFunctions.count(oldF) == 0) {
-        DEBUG(dbgs() << "skipped cloning of function from call " << *v << ": function disabled\n");
+        LLVM_DEBUG(dbgs() << "skipped cloning of function from call " << *v << ": function disabled\n");
         continue;
       }
     }
@@ -450,7 +450,7 @@ Function* TaffoInitializer::createFunctionAndQueue(CallSite *call, SmallPtrSetIm
   std::vector<Value*> roots; //propagate fixp conversion
   oldArgumentI = oldF->arg_begin();
   newArgumentI = newF->arg_begin();
-  DEBUG(dbgs() << "Create function from " << oldF->getName() << " to " << newF->getName() << "\n";);
+  LLVM_DEBUG(dbgs() << "Create function from " << oldF->getName() << " to " << newF->getName() << "\n";);
   for (int i=0; oldArgumentI != oldF->arg_end() ; oldArgumentI++, newArgumentI++, i++) {
     Value *callOperand = call->getInstruction()->getOperand(i);
     Value *allocaOfArgument = newArgumentI->user_begin()->getOperand(1);
@@ -473,8 +473,8 @@ Function* TaffoInitializer::createFunctionAndQueue(CallSite *call, SmallPtrSetIm
     }
     roots.push_back(allocaOfArgument);
     
-    DEBUG(dbgs() << "  Arg nr. " << i << " processed, isRoot = " << allocaVi.isRoot << "\n");
-    DEBUG(dbgs() << "    md = " << allocaVi.metadata->toString() << "\n");
+    LLVM_DEBUG(dbgs() << "  Arg nr. " << i << " processed, isRoot = " << allocaVi.isRoot << "\n");
+    LLVM_DEBUG(dbgs() << "    md = " << allocaVi.metadata->toString() << "\n");
     
     // Mark the argument itself (set it as a new root as well in VRA-less mode)
     argumentVi.metadata.reset(callVi.metadata->clone());
