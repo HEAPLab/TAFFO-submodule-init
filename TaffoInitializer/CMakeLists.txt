@@ -1,4 +1,4 @@
-add_llvm_loadable_module(TaffoInitializer
+add_llvm_library(TaffoInitializer MODULE
   TaffoInitializerPass.cpp
   TaffoInitializerPass.h
   Annotations.cpp
