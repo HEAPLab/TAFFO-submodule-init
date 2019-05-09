@@ -36,8 +36,6 @@ static RegisterPass<TaffoInitializer> X(
 
 llvm::cl::opt<bool> ManualFunctionCloning("manualclone",
     llvm::cl::desc("Enables function cloning only for annotated functions"), llvm::cl::init(false));
-llvm::cl::opt<bool> ManualRangeMode("manualrange",
-    llvm::cl::desc("Enables propagation of ranges for annotated variables"), llvm::cl::init(false));
 
 
 bool TaffoInitializer::runOnModule(Module &m)
@@ -115,9 +113,8 @@ void TaffoInitializer::setMetadataOfValue(Value *v)
   ValueInfo& vi = *valueInfo(v);
   std::shared_ptr<mdutils::MDInfo> md = vi.metadata;
   
-  if (!ManualRangeMode && !(vi.fixpTypeRootDistance == 0 || vi.isRoot)) {
-    md.reset(md->clone());
-    removeRangeErrorFromMetadata(md);
+  if (isa<Instruction>(v) || isa<GlobalObject>(v)) {
+    mdutils::MetadataManager::setInputInfoInitWeightMetadata(v, vi.fixpTypeRootDistance);
   }
 
   if (Instruction *inst = dyn_cast<Instruction>(v)) {
