@@ -36,8 +36,6 @@ static RegisterPass<TaffoInitializer> X(
 
 llvm::cl::opt<bool> ManualFunctionCloning("manualclone",
     llvm::cl::desc("Enables function cloning only for annotated functions"), llvm::cl::init(false));
-llvm::cl::opt<bool> VRACompatibilityMode("vracompat",
-    llvm::cl::desc("Enables VRA-less mode (adds metadata on function arguments)"), llvm::cl::init(false));
 llvm::cl::opt<bool> ManualRangeMode("manualrange",
     llvm::cl::desc("Enables propagation of ranges for annotated variables"), llvm::cl::init(false));
 
@@ -407,8 +405,6 @@ void TaffoInitializer::generateFunctionSpace(std::vector<Value *> &vals, SmallPt
      * Allows us to properly process call functions */
     for (BasicBlock& bb: *newF) {
       for (Instruction& i: bb) {
-        if (VRACompatibilityMode && hasInfo(&i))
-          continue;
         if (mdutils::MDInfo *mdi = mdutils::MetadataManager::getMetadataManager().retrieveMDInfo(&i)) {
           newVals.push_back(&i);
           valueInfo(&i)->metadata.reset(mdi->clone());
@@ -465,12 +461,7 @@ Function* TaffoInitializer::createFunctionAndQueue(CallSite *call, SmallPtrSetIm
     // Mark the alloca used for the argument (in O0 opt lvl)
     // let it be a root in VRA-less mode
     allocaVi.metadata.reset(callVi.metadata->clone());
-    if (VRACompatibilityMode) {
-      allocaVi.fixpTypeRootDistance = 0;
-      allocaVi.isRoot = true;
-    } else {
-      allocaVi.fixpTypeRootDistance = callVi.fixpTypeRootDistance+2;
-    }
+    allocaVi.fixpTypeRootDistance = callVi.fixpTypeRootDistance+2;
     roots.push_back(allocaOfArgument);
     
     LLVM_DEBUG(dbgs() << "  Arg nr. " << i << " processed, isRoot = " << allocaVi.isRoot << "\n");
@@ -478,12 +469,7 @@ Function* TaffoInitializer::createFunctionAndQueue(CallSite *call, SmallPtrSetIm
     
     // Mark the argument itself (set it as a new root as well in VRA-less mode)
     argumentVi.metadata.reset(callVi.metadata->clone());
-    if (VRACompatibilityMode) {
-      argumentVi.fixpTypeRootDistance = 0;
-      argumentVi.isRoot = true;
-    } else {
-      argumentVi.fixpTypeRootDistance = callVi.fixpTypeRootDistance+1;
-    }
+    argumentVi.fixpTypeRootDistance = callVi.fixpTypeRootDistance+1;
   }
 
   std::vector<Value*> tmpVals;
