@@ -142,13 +142,16 @@ void TaffoInitializer::setMetadataOfValue(Value *v)
 void TaffoInitializer::setFunctionArgsMetadata(Module &m)
 {
   std::vector<mdutils::MDInfo *> iiPVec;
+  std::vector<int> wPVec;
   for (Function &f : m.functions()) {
     LLVM_DEBUG(dbgs() << "Processing function " << f.getName() << "\n");
     iiPVec.reserve(f.arg_size());
+    wPVec.reserve(f.arg_size());
 
     for (const Argument &a : f.args()) {
       LLVM_DEBUG(dbgs() << "Processing arg " << a << "\n");
       mdutils::MDInfo *ii = nullptr;
+      int weight = -1;
       for (const Use &u : a.uses()) {
         Value *sv = u.getUser();
         LLVM_DEBUG(dbgs() << "Processing use " << *sv << "\n");
@@ -157,16 +160,20 @@ void TaffoInitializer::setFunctionArgsMetadata(Module &m)
             LLVM_DEBUG(dbgs() << "Info found.\n");
             ValueInfo &vi = *valueInfo(sv);
             ii = vi.metadata.get();
+	    weight = vi.fixpTypeRootDistance;
             break;
           }
         }
       }
       iiPVec.push_back(ii);
+      wPVec.push_back(weight);
     }
 
     mdutils::MetadataManager::setArgumentInputInfoMetadata(f, iiPVec);
+    mdutils::MetadataManager::setInputInfoInitWeightMetadata(&f, wPVec);
 
     iiPVec.clear();
+    wPVec.clear();
   }
 }
 
