@@ -58,6 +58,8 @@ struct TaffoInitializer : public llvm::ModulePass {
   
   void buildConversionQueueForRootValues(const llvm::ArrayRef<llvm::Value*>& val, std::vector<llvm::Value*>& res);
   void createInfoOfUser(llvm::Value *used, llvm::Value *user);
+  std::shared_ptr<mdutils::MDInfo> extractGEPIMetadata(const llvm::Value *v,
+						       std::shared_ptr<mdutils::MDInfo> mdi);
   void generateFunctionSpace(std::vector<llvm::Value *> &vals, llvm::SmallPtrSetImpl<llvm::Value *> &global, llvm::SmallPtrSet<llvm::Function *, 10> &callTrace);
   llvm::Function *createFunctionAndQueue(llvm::CallSite *call, llvm::SmallPtrSetImpl<llvm::Value *> &global, std::vector<llvm::Value*> &convQueue);
   void printConversionQueue(std::vector<llvm::Value*> vals);

@@ -339,6 +339,8 @@ void TaffoInitializer::createInfoOfUser(Value *used, Value *user)
     copyok |= (!usedt->isStructTy() && !usert->isStructTy()) || isa<StoreInst>(user);
     if (copyok) {
       uinfo.metadata.reset(vinfo.metadata->clone());
+    } else if (std::shared_ptr<mdutils::MDInfo> gepimdi = extractGEPIMetadata(user, vinfo.metadata)) {
+      uinfo.metadata = gepimdi;
     } else {
       uinfo.metadata = mdutils::StructInfo::constructFromLLVMType(usert);
       if (uinfo.metadata.get() == nullptr) {
@@ -357,6 +359,34 @@ void TaffoInitializer::createInfoOfUser(Value *used, Value *user)
   if (iiu && iiv && iiv->IEnableConversion) {
     iiu->IEnableConversion = true;
   }
+}
+
+std::shared_ptr<mdutils::MDInfo>
+TaffoInitializer::extractGEPIMetadata(const llvm::Value *v,
+				      std::shared_ptr<mdutils::MDInfo> mdi)
+{
+  using namespace mdutils;
+  assert(v && mdi);
+  const GetElementPtrInst *gepi = dyn_cast<GetElementPtrInst>(v);
+  if (!gepi)
+    return nullptr;
+
+  Type* source_element_type = gepi->getSourceElementType();
+  for (auto idx_it = gepi->idx_begin() + 1; // skip first index
+       idx_it != gepi->idx_end(); ++idx_it) {
+    if (isa<SequentialType>(source_element_type))
+      continue;
+
+    if (const llvm::ConstantInt* int_i = dyn_cast<llvm::ConstantInt>(*idx_it)) {
+      int n = static_cast<int>(int_i->getSExtValue());
+      mdi = cast<StructInfo>(mdi.get())->getField(n);
+      source_element_type =
+	cast<StructType>(source_element_type)->getTypeAtIndex(n);
+    } else {
+      return nullptr;
+    }
+  }
+  return (mdi) ? std::shared_ptr<mdutils::MDInfo>(mdi.get()->clone()) : nullptr;
 }
 
 
