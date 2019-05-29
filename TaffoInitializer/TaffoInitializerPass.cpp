@@ -330,7 +330,7 @@ void TaffoInitializer::createInfoOfUser(Value *used, Value *user)
 {
   ValueInfo vinfo = *valueInfo(used);
   ValueInfo &uinfo = *valueInfo(user);
-  
+
   /* Copy metadata from the closest instruction to a root */
   if (!(uinfo.fixpTypeRootDistance <= std::max(vinfo.fixpTypeRootDistance, vinfo.fixpTypeRootDistance+1))) {
     /* Do not copy metadata in case of type conversions from struct to
@@ -344,15 +344,13 @@ void TaffoInitializer::createInfoOfUser(Value *used, Value *user)
     copyok |= (!usedt->isStructTy() && !usert->isStructTy()) || isa<StoreInst>(user);
     if (copyok) {
       uinfo.metadata.reset(vinfo.metadata->clone());
-    } else if (std::shared_ptr<mdutils::MDInfo> gepimdi = extractGEPIMetadata(user, used, vinfo.metadata)) {
-      uinfo.metadata = gepimdi;
     } else {
       uinfo.metadata = mdutils::StructInfo::constructFromLLVMType(usert);
       if (uinfo.metadata.get() == nullptr) {
         uinfo.metadata.reset(new mdutils::InputInfo(nullptr, nullptr, nullptr, true));
       }
     }
-  
+
     uinfo.target = vinfo.target;
     uinfo.fixpTypeRootDistance = std::max(vinfo.fixpTypeRootDistance, vinfo.fixpTypeRootDistance+1);
   }
@@ -364,18 +362,32 @@ void TaffoInitializer::createInfoOfUser(Value *used, Value *user)
   if (iiu && iiv && iiv->IEnableConversion) {
     iiu->IEnableConversion = true;
   }
+
+  // Fix metadata if this is a GetElementPtrInst
+  if (std::shared_ptr<mdutils::MDInfo> gepi_mdi =
+      extractGEPIMetadata(user, used, uinfo.metadata, vinfo.metadata)) {
+    uinfo.metadata = gepi_mdi;
+  }
 }
 
 std::shared_ptr<mdutils::MDInfo>
-TaffoInitializer::extractGEPIMetadata(const llvm::Value *v_gepi,
-				      const llvm::Value *pop,
-				      std::shared_ptr<mdutils::MDInfo> mdi)
+TaffoInitializer::extractGEPIMetadata(const llvm::Value *user,
+				      const llvm::Value *used,
+				      std::shared_ptr<mdutils::MDInfo> user_mdi,
+				      std::shared_ptr<mdutils::MDInfo> used_mdi)
 {
   using namespace mdutils;
-  assert(v_gepi && pop && mdi);
-  const GetElementPtrInst *gepi = dyn_cast<GetElementPtrInst>(v_gepi);
-  if (!gepi || gepi->getPointerOperand() != pop)
+  assert(user && used && used_mdi);
+  const GetElementPtrInst *gepi = dyn_cast<GetElementPtrInst>(user);
+  if (!gepi)
     return nullptr;
+
+  if (gepi->getPointerOperand() != used) {
+    if (user_mdi)
+      return user_mdi;
+    else
+      return nullptr;
+  }
 
   Type* source_element_type = gepi->getSourceElementType();
   for (auto idx_it = gepi->idx_begin() + 1; // skip first index
@@ -385,14 +397,16 @@ TaffoInitializer::extractGEPIMetadata(const llvm::Value *v_gepi,
 
     if (const llvm::ConstantInt* int_i = dyn_cast<llvm::ConstantInt>(*idx_it)) {
       int n = static_cast<int>(int_i->getSExtValue());
-      mdi = cast<StructInfo>(mdi.get())->getField(n);
+      used_mdi = cast<StructInfo>(used_mdi.get())->getField(n);
       source_element_type =
 	cast<StructType>(source_element_type)->getTypeAtIndex(n);
     } else {
       return nullptr;
     }
   }
-  return (mdi) ? std::shared_ptr<mdutils::MDInfo>(mdi.get()->clone()) : nullptr;
+  return (used_mdi)
+    ? std::shared_ptr<mdutils::MDInfo>(used_mdi.get()->clone())
+    : nullptr;
 }
 
 
