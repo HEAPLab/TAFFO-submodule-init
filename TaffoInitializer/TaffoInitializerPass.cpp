@@ -420,8 +420,8 @@ void TaffoInitializer::generateFunctionSpace(std::vector<Value *> &vals, SmallPt
     
     Function *oldF = call->getCalledFunction();
     if (!oldF) {
-      LLVM_DEBUG(dbgs() << "found bitcasted funcptr in " << *v << "\n");
-      assert(0 && "bitcasted function pointers and such not handled atm");
+      LLVM_DEBUG(dbgs() << "found bitcasted funcptr in " << *v << ", skipping\n");
+      continue;
     }
     if(isSpecialFunction(oldF))
       continue;
