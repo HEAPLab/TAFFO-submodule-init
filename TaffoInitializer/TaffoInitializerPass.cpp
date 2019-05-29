@@ -7,7 +7,6 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/Support/Debug.h"
@@ -187,6 +186,7 @@ void TaffoInitializer::buildConversionQueueForRootValues(
     valueInfo(*i)->isRoot = true;
   }
 
+  SmallPtrSet<Value *, 8U> visited;
   size_t prevQueueSize = 0;
   while (prevQueueSize < queue.size()) {
     LLVM_DEBUG(dbgs() << "***** buildConversionQueueForRootValues iter " << prevQueueSize << " < " << queue.size() << "\n";);
@@ -195,6 +195,7 @@ void TaffoInitializer::buildConversionQueueForRootValues(
     size_t next = 0;
     while (next < queue.size()) {
       Value *v = queue.at(next);
+      visited.insert(v);
 
       for (auto *u: v->users()) {
         /* ignore u if it is the global annotation array */
@@ -202,6 +203,10 @@ void TaffoInitializer::buildConversionQueueForRootValues(
           if (ugo->hasSection() && ugo->getSection() == "llvm.metadata")
             continue;
         }
+
+	if (isa<PHINode>(u) && visited.count(u)) {
+	  continue;
+	}
 
         /* Insert u at the end of the queue.
          * If u exists already in the queue, *move* it to the end instead. */
@@ -339,7 +344,7 @@ void TaffoInitializer::createInfoOfUser(Value *used, Value *user)
     copyok |= (!usedt->isStructTy() && !usert->isStructTy()) || isa<StoreInst>(user);
     if (copyok) {
       uinfo.metadata.reset(vinfo.metadata->clone());
-    } else if (std::shared_ptr<mdutils::MDInfo> gepimdi = extractGEPIMetadata(user, vinfo.metadata)) {
+    } else if (std::shared_ptr<mdutils::MDInfo> gepimdi = extractGEPIMetadata(user, used, vinfo.metadata)) {
       uinfo.metadata = gepimdi;
     } else {
       uinfo.metadata = mdutils::StructInfo::constructFromLLVMType(usert);
@@ -362,13 +367,14 @@ void TaffoInitializer::createInfoOfUser(Value *used, Value *user)
 }
 
 std::shared_ptr<mdutils::MDInfo>
-TaffoInitializer::extractGEPIMetadata(const llvm::Value *v,
+TaffoInitializer::extractGEPIMetadata(const llvm::Value *v_gepi,
+				      const llvm::Value *pop,
 				      std::shared_ptr<mdutils::MDInfo> mdi)
 {
   using namespace mdutils;
-  assert(v && mdi);
-  const GetElementPtrInst *gepi = dyn_cast<GetElementPtrInst>(v);
-  if (!gepi)
+  assert(v_gepi && pop && mdi);
+  const GetElementPtrInst *gepi = dyn_cast<GetElementPtrInst>(v_gepi);
+  if (!gepi || gepi->getPointerOperand() != pop)
     return nullptr;
 
   Type* source_element_type = gepi->getSourceElementType();
