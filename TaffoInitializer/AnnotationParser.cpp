@@ -185,7 +185,8 @@ bool AnnotationParser::parseScalar(std::shared_ptr<MDInfo>& thisMd)
       
     } else if (peek("disabled")) {
       ii->IEnableConversion = false;
-      
+    } else if (peek("final")) {
+      ii->IFinal = true;
     } else {
       error = "Unknown identifier at character index " + std::to_string(sstream.tellg());
       return false;
