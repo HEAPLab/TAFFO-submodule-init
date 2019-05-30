@@ -495,6 +495,7 @@ Function* TaffoInitializer::createFunctionAndQueue(CallSite *call, SmallPtrSetIm
   }
   SmallVector<ReturnInst*,100> returns;
   CloneFunctionInto(newF, oldF, mapArgs, true, returns);
+  newF->setLinkage(GlobalVariable::LinkageTypes::InternalLinkage);
   FunctionCloned++;
 
   std::vector<Value*> roots; //propagate fixp conversion
