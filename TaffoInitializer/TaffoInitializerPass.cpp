@@ -196,6 +196,13 @@ void TaffoInitializer::buildConversionQueueForRootValues(
     while (next < queue.size()) {
       Value *v = queue.at(next);
       visited.insert(v);
+      
+      LLVM_DEBUG(dbgs() << "[V] " << *v);
+      if (Instruction *i = dyn_cast<Instruction>(v))
+          LLVM_DEBUG(dbgs() << "[ " << i->getFunction()->getName() << "]\n");
+        else
+          LLVM_DEBUG(dbgs() << "\n");
+      LLVM_DEBUG(dbgs() << "    distance = " << valueInfo(v)->fixpTypeRootDistance << "\n");
 
       for (auto *u: v->users()) {
         /* ignore u if it is the global annotation array */
@@ -204,9 +211,9 @@ void TaffoInitializer::buildConversionQueueForRootValues(
             continue;
         }
 
-	if (isa<PHINode>(u) && visited.count(u)) {
-	  continue;
-	}
+        if (isa<PHINode>(u) && visited.count(u)) {
+          continue;
+        }
 
         /* Insert u at the end of the queue.
          * If u exists already in the queue, *move* it to the end instead. */
@@ -220,6 +227,11 @@ void TaffoInitializer::buildConversionQueueForRootValues(
           }
         }
         queue.push_back(u);
+        LLVM_DEBUG(dbgs() << "[U] " << *u);
+        if (Instruction *i = dyn_cast<Instruction>(u))
+          LLVM_DEBUG(dbgs() << "[ " << i->getFunction()->getName() << "]\n");
+        else
+          LLVM_DEBUG(dbgs() << "\n");
 
         if (valueInfo(v)->isBacktrackingNode) {
           valueInfo(u)->isBacktrackingNode = true;
@@ -353,6 +365,9 @@ void TaffoInitializer::createInfoOfUser(Value *used, Value *user)
 
     uinfo.target = vinfo.target;
     uinfo.fixpTypeRootDistance = std::max(vinfo.fixpTypeRootDistance, vinfo.fixpTypeRootDistance+1);
+    LLVM_DEBUG(dbgs() << "[" << *user << "] update fixpTypeRootDistance=" << uinfo.fixpTypeRootDistance << "\n");
+  } else {
+    LLVM_DEBUG(dbgs() << "[" << *user << "] not updated fixpTypeRootDistance=" << uinfo.fixpTypeRootDistance << "\n");
   }
 
   /* The conversion enabling flag shall be true if at least one of the parents
@@ -414,6 +429,8 @@ TaffoInitializer::extractGEPIMetadata(const llvm::Value *user,
 void TaffoInitializer::generateFunctionSpace(std::vector<Value *> &vals, SmallPtrSetImpl<llvm::Value *> &global,
                                              SmallPtrSet<Function *, 10> &callTrace)
 {
+  LLVM_DEBUG(dbgs() << "***** begin " << __PRETTY_FUNCTION__ << "\n");
+  
   for (Value *v: vals) {
     if (!(isa<CallInst>(v) || isa<InvokeInst>(v)))
       continue;
@@ -458,11 +475,16 @@ void TaffoInitializer::generateFunctionSpace(std::vector<Value *> &vals, SmallPt
     /* Reconstruct the value info for the values which are in the top-level
      * conversion queue and in the oldF
      * Allows us to properly process call functions */
+    mdutils::MetadataManager& mm = mdutils::MetadataManager::getMetadataManager();
     for (BasicBlock& bb: *newF) {
       for (Instruction& i: bb) {
-        if (mdutils::MDInfo *mdi = mdutils::MetadataManager::getMetadataManager().retrieveMDInfo(&i)) {
+        if (mdutils::MDInfo *mdi = mm.retrieveMDInfo(&i)) {
           newVals.push_back(&i);
           valueInfo(&i)->metadata.reset(mdi->clone());
+          int weight = mm.retrieveInputInfoInitWeightMetadata(&i);
+          if (weight >= 0)
+            valueInfo(&i)->fixpTypeRootDistance = weight;
+          LLVM_DEBUG(dbgs() << "  enqueued & rebuilt valueInfo of " << i << " in " << newF->getName() << "\n");
         }
       }
     }
@@ -476,12 +498,15 @@ void TaffoInitializer::generateFunctionSpace(std::vector<Value *> &vals, SmallPt
     callTrace.erase(newF);
     callTrace.erase(oldF);
   }
+  
+  LLVM_DEBUG(dbgs() << "***** end " << __PRETTY_FUNCTION__ << "\n");
 }
 
 
 Function* TaffoInitializer::createFunctionAndQueue(CallSite *call, SmallPtrSetImpl<Value *> &global,
     std::vector<Value *> &convQueue)
 {
+  LLVM_DEBUG(dbgs() << "***** begin " << __PRETTY_FUNCTION__ << "\n");
   Function *oldF = call->getCalledFunction();
   Function *newF = Function::Create(
       oldF->getFunctionType(), oldF->getLinkage(),
@@ -502,7 +527,8 @@ Function* TaffoInitializer::createFunctionAndQueue(CallSite *call, SmallPtrSetIm
   std::vector<Value*> roots; //propagate fixp conversion
   oldArgumentI = oldF->arg_begin();
   newArgumentI = newF->arg_begin();
-  LLVM_DEBUG(dbgs() << "Create function from " << oldF->getName() << " to " << newF->getName() << "\n";);
+  LLVM_DEBUG(dbgs() << "Create function from " << oldF->getName() << " to " << newF->getName() << "\n");
+  LLVM_DEBUG(dbgs() << "  callsite instr " << *call->getInstruction() << " [" << call->getInstruction()->getFunction()->getName() << "]\n");
   for (int i=0; oldArgumentI != oldF->arg_end() ; oldArgumentI++, newArgumentI++, i++) {
     Value *callOperand = call->getInstruction()->getOperand(i);
     Value *allocaOfArgument = newArgumentI->user_begin()->getOperand(1);
@@ -522,6 +548,7 @@ Function* TaffoInitializer::createFunctionAndQueue(CallSite *call, SmallPtrSetIm
     
     LLVM_DEBUG(dbgs() << "  Arg nr. " << i << " processed, isRoot = " << allocaVi.isRoot << "\n");
     LLVM_DEBUG(dbgs() << "    md = " << allocaVi.metadata->toString() << "\n");
+    LLVM_DEBUG(dbgs() << "    enqueued alloca of argument " << *allocaOfArgument << "\n");
     
     // Mark the argument itself (set it as a new root as well in VRA-less mode)
     argumentVi.metadata.reset(callVi.metadata->clone());
@@ -538,9 +565,11 @@ Function* TaffoInitializer::createFunctionAndQueue(CallSite *call, SmallPtrSetIm
     if (Instruction *inst = dyn_cast<Instruction>(val)) {
       if (inst->getFunction()==newF){
         convQueue.push_back(val);
+        LLVM_DEBUG(dbgs() << "  enqueued " << *inst << " in " << newF->getName() << "\n");
       }
     }
   }
+  LLVM_DEBUG(dbgs() << "***** end " << __PRETTY_FUNCTION__ << "\n");
   return newF;
 }
 
