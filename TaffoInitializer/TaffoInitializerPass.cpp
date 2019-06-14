@@ -377,16 +377,17 @@ TaffoInitializer::extractGEPIMetadata(const llvm::Value *user,
 				      std::shared_ptr<mdutils::MDInfo> used_mdi)
 {
   using namespace mdutils;
-  assert(user && used && used_mdi);
+  if (!used_mdi)
+    return nullptr;
+  assert(user && used);
   const GetElementPtrInst *gepi = dyn_cast<GetElementPtrInst>(user);
   if (!gepi)
     return nullptr;
 
   if (gepi->getPointerOperand() != used) {
-    if (user_mdi)
-      return user_mdi;
-    else
-      return nullptr;
+    /* if the used value is not the pointer, then it must be one of the
+     * indices; keep everything as is */
+    return nullptr;
   }
 
   Type* source_element_type = gepi->getSourceElementType();
