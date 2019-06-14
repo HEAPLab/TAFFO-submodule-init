@@ -32,7 +32,7 @@ struct ValueInfo {
   bool isBacktrackingNode = false;
   bool isRoot;
   llvm::SmallPtrSet<llvm::Value*, 5> roots;
-  int fixpTypeRootDistance = INT_MAX;
+  unsigned int fixpTypeRootDistance = UINT_MAX;
   
   std::shared_ptr<mdutils::MDInfo> metadata;
   llvm::Optional<std::string> target;

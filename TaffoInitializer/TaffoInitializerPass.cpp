@@ -516,7 +516,7 @@ Function* TaffoInitializer::createFunctionAndQueue(CallSite *call, SmallPtrSetIm
     // Mark the alloca used for the argument (in O0 opt lvl)
     // let it be a root in VRA-less mode
     allocaVi.metadata.reset(callVi.metadata->clone());
-    allocaVi.fixpTypeRootDistance = callVi.fixpTypeRootDistance+2;
+    allocaVi.fixpTypeRootDistance = std::max(callVi.fixpTypeRootDistance, callVi.fixpTypeRootDistance+2);
     roots.push_back(allocaOfArgument);
     
     LLVM_DEBUG(dbgs() << "  Arg nr. " << i << " processed, isRoot = " << allocaVi.isRoot << "\n");
@@ -524,7 +524,7 @@ Function* TaffoInitializer::createFunctionAndQueue(CallSite *call, SmallPtrSetIm
     
     // Mark the argument itself (set it as a new root as well in VRA-less mode)
     argumentVi.metadata.reset(callVi.metadata->clone());
-    argumentVi.fixpTypeRootDistance = callVi.fixpTypeRootDistance+1;
+    argumentVi.fixpTypeRootDistance = std::max(callVi.fixpTypeRootDistance, callVi.fixpTypeRootDistance+1);
   }
 
   std::vector<Value*> tmpVals;
