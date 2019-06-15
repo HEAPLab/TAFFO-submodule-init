@@ -42,6 +42,7 @@ class AnnotationParser {
   
 public:
   llvm::Optional<std::string> target;
+  bool startingPoint;
   bool backtracking;
   std::shared_ptr<mdutils::MDInfo> metadata;
   

@@ -58,9 +58,9 @@ void TaffoInitializer::readLocalAnnotations(llvm::Function &f, llvm::SmallPtrSet
         continue;
 
       if (call->getCalledFunction()->getName() == "llvm.var.annotation") {
-	bool isTarget = false;
-        parseAnnotation(variables, cast<ConstantExpr>(iIt->getOperand(1)), iIt->getOperand(0), &isTarget);
-	found |= isTarget;
+	bool startingPoint = false;
+        parseAnnotation(variables, cast<ConstantExpr>(iIt->getOperand(1)), iIt->getOperand(0), &startingPoint);
+	found |= startingPoint;
       }
     }
   }
@@ -86,7 +86,7 @@ void TaffoInitializer::readAllLocalAnnotations(llvm::Module &m, llvm::SmallPtrSe
 // Return true on success, false on error
 bool TaffoInitializer::parseAnnotation(SmallPtrSetImpl<Value *>& variables,
 				       ConstantExpr *annoPtrInst, Value *instr,
-				       bool *isTarget)
+				       bool *startingPoint)
 {
   ValueInfo vi;
 
@@ -113,8 +113,8 @@ bool TaffoInitializer::parseAnnotation(SmallPtrSetImpl<Value *>& variables,
   vi.isRoot = true;
   vi.isBacktrackingNode = parser.backtracking;
   vi.metadata = parser.metadata;
-  if (isTarget)
-    *isTarget = parser.target.hasValue();
+  if (startingPoint)
+    *startingPoint = parser.startingPoint;
   vi.target = parser.target;
 
   if (Instruction *toconv = dyn_cast<Instruction>(instr)) {
