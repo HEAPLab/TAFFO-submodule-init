@@ -254,7 +254,7 @@ bool AnnotationParser::parseStruct(std::shared_ptr<MDInfo>& thisMd)
 
 char AnnotationParser::skipWhitespace()
 {
-  char tmp;
+  char tmp = '\0';
   sstream >> tmp;
   while (tmp != '\0' && (isblank(tmp) || iscntrl(tmp)))
     sstream >> tmp;
