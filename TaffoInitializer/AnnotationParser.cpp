@@ -21,7 +21,7 @@ void AnnotationParser::reset()
 bool AnnotationParser::parseAnnotationString(StringRef annstr)
 {
   reset();
-  sstream = std::istringstream(annstr.substr(0, annstr.size()-1));
+  sstream = std::istringstream(annstr.substr(0, annstr.size()));
   
   bool res;
   if (annstr.find('(') == StringRef::npos)
@@ -258,6 +258,8 @@ char AnnotationParser::skipWhitespace()
   sstream >> tmp;
   while (!sstream.eof() && tmp != '\0' && (isblank(tmp) || iscntrl(tmp)))
     sstream >> tmp;
+  if (sstream.eof())
+    return '\0';
   return tmp;
 }
 
