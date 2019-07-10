@@ -256,7 +256,7 @@ char AnnotationParser::skipWhitespace()
 {
   char tmp = '\0';
   sstream >> tmp;
-  while (tmp != '\0' && (isblank(tmp) || iscntrl(tmp)))
+  while (!sstream.eof() && tmp != '\0' && (isblank(tmp) || iscntrl(tmp)))
     sstream >> tmp;
   return tmp;
 }
