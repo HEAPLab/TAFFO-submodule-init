@@ -532,27 +532,37 @@ Function* TaffoInitializer::createFunctionAndQueue(CallSite *call, SmallPtrSetIm
   for (int i=0; oldArgumentI != oldF->arg_end() ; oldArgumentI++, newArgumentI++, i++) {
     Value *callOperand = call->getInstruction()->getOperand(i);
     Value *allocaOfArgument = newArgumentI->user_begin()->getOperand(1);
+    if (!isa<AllocaInst>(allocaOfArgument))
+      allocaOfArgument = nullptr;
     
-    if (!hasInfo(callOperand))
+    if (!hasInfo(callOperand)) {
+      LLVM_DEBUG(dbgs() << "  Arg nr. " << i << " skipped, callOperand has no valueInfo\n");
       continue;
+    }
   
     ValueInfo& callVi = *valueInfo(callOperand);
-    ValueInfo& allocaVi = *valueInfo(allocaOfArgument);
+    
     ValueInfo& argumentVi = *valueInfo(newArgumentI);
-    
-    // Mark the alloca used for the argument (in O0 opt lvl)
-    // let it be a root in VRA-less mode
-    allocaVi.metadata.reset(callVi.metadata->clone());
-    allocaVi.fixpTypeRootDistance = std::max(callVi.fixpTypeRootDistance, callVi.fixpTypeRootDistance+2);
-    roots.push_back(allocaOfArgument);
-    
-    LLVM_DEBUG(dbgs() << "  Arg nr. " << i << " processed, isRoot = " << allocaVi.isRoot << "\n");
-    LLVM_DEBUG(dbgs() << "    md = " << allocaVi.metadata->toString() << "\n");
-    LLVM_DEBUG(dbgs() << "    enqueued alloca of argument " << *allocaOfArgument << "\n");
-    
     // Mark the argument itself (set it as a new root as well in VRA-less mode)
     argumentVi.metadata.reset(callVi.metadata->clone());
     argumentVi.fixpTypeRootDistance = std::max(callVi.fixpTypeRootDistance, callVi.fixpTypeRootDistance+1);
+    if (!allocaOfArgument) {
+      roots.push_back(newArgumentI);
+    }
+    
+    if (allocaOfArgument) {
+      ValueInfo& allocaVi = *valueInfo(allocaOfArgument);
+      // Mark the alloca used for the argument (in O0 opt lvl)
+      // let it be a root in VRA-less mode
+      allocaVi.metadata.reset(callVi.metadata->clone());
+      allocaVi.fixpTypeRootDistance = std::max(callVi.fixpTypeRootDistance, callVi.fixpTypeRootDistance+2);
+      roots.push_back(allocaOfArgument);
+    }
+    
+    LLVM_DEBUG(dbgs() << "  Arg nr. " << i << " processed, isRoot = " << argumentVi.isRoot << "\n");
+    LLVM_DEBUG(dbgs() << "    md = " << argumentVi.metadata->toString() << "\n");
+    if (allocaOfArgument)
+      LLVM_DEBUG(dbgs() << "    enqueued alloca of argument " << *allocaOfArgument << "\n");
   }
 
   std::vector<Value*> tmpVals;
