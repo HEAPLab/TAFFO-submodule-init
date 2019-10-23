@@ -344,6 +344,7 @@ void TaffoInitializer::createInfoOfUser(Value *used, Value *user)
   ValueInfo &uinfo = *valueInfo(user);
 
   /* Copy metadata from the closest instruction to a root */
+  LLVM_DEBUG(dbgs() << "root distances: " << uinfo.fixpTypeRootDistance << " > " << vinfo.fixpTypeRootDistance << " + 1\n");
   if (!(uinfo.fixpTypeRootDistance <= std::max(vinfo.fixpTypeRootDistance, vinfo.fixpTypeRootDistance+1))) {
     /* Do not copy metadata in case of type conversions from struct to
      * non-struct and vice-versa.
@@ -354,9 +355,13 @@ void TaffoInitializer::createInfoOfUser(Value *used, Value *user)
     Type *usert = fullyUnwrapPointerOrArrayType(user->getType());
     bool copyok = (usedt == usert);
     copyok |= (!usedt->isStructTy() && !usert->isStructTy()) || isa<StoreInst>(user);
+    if (isa<GetElementPtrInst>(user) && used != dyn_cast<GetElementPtrInst>(user)->getPointerOperand())
+      copyok = false;
     if (copyok) {
+      LLVM_DEBUG(dbgs() << "createInfoOfUser copied MD from vinfo (" << *used << ") " << vinfo.metadata->toString() << "\n");
       uinfo.metadata.reset(vinfo.metadata->clone());
     } else {
+      LLVM_DEBUG(dbgs() << "createInfoOfUser created MD from uinfo because usedt != usert\n");
       uinfo.metadata = mdutils::StructInfo::constructFromLLVMType(usert);
       if (uinfo.metadata.get() == nullptr) {
         uinfo.metadata.reset(new mdutils::InputInfo(nullptr, nullptr, nullptr, true));
@@ -404,10 +409,13 @@ TaffoInitializer::extractGEPIMetadata(const llvm::Value *user,
      * indices; keep everything as is */
     return nullptr;
   }
+  
+  LLVM_DEBUG(dbgs() << "[extractGEPIMetadata] begin\n");
 
   Type* source_element_type = gepi->getSourceElementType();
   for (auto idx_it = gepi->idx_begin() + 1; // skip first index
        idx_it != gepi->idx_end(); ++idx_it) {
+    LLVM_DEBUG(dbgs() << "[extractGEPIMetadata] source_element_type=" << *source_element_type << "\n");
     if (isa<SequentialType>(source_element_type))
       continue;
 
@@ -415,11 +423,16 @@ TaffoInitializer::extractGEPIMetadata(const llvm::Value *user,
       int n = static_cast<int>(int_i->getSExtValue());
       used_mdi = cast<StructInfo>(used_mdi.get())->getField(n);
       source_element_type =
-	cast<StructType>(source_element_type)->getTypeAtIndex(n);
+      cast<StructType>(source_element_type)->getTypeAtIndex(n);
     } else {
+      LLVM_DEBUG(dbgs() << "[extractGEPIMetadata] fail, non-const index encountered\n");
       return nullptr;
     }
   }
+  if (used_mdi)
+    LLVM_DEBUG(dbgs() << "[extractGEPIMetadata] end, used_mdi=" << used_mdi->toString() << "\n");
+  else
+    LLVM_DEBUG(dbgs() << "[extractGEPIMetadata] end, used_mdi=NULL\n");
   return (used_mdi)
     ? std::shared_ptr<mdutils::MDInfo>(used_mdi.get()->clone())
     : nullptr;
