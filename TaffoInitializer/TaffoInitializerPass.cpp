@@ -147,22 +147,15 @@ void TaffoInitializer::setFunctionArgsMetadata(Module &m)
     iiPVec.reserve(f.arg_size());
     wPVec.reserve(f.arg_size());
 
-    for (const Argument &a : f.args()) {
+    for (Argument &a : f.args()) {
       LLVM_DEBUG(dbgs() << "Processing arg " << a << "\n");
       mdutils::MDInfo *ii = nullptr;
       int weight = -1;
-      for (const Use &u : a.uses()) {
-        Value *sv = u.getUser();
-        LLVM_DEBUG(dbgs() << "Processing use " << *sv << "\n");
-        if (isa<StoreInst>(sv)) {
-          if (hasInfo(sv)) {
-            LLVM_DEBUG(dbgs() << "Info found.\n");
-            ValueInfo &vi = *valueInfo(sv);
-            ii = vi.metadata.get();
-	    weight = vi.fixpTypeRootDistance;
-            break;
-          }
-        }
+      if (hasInfo(&a)) {
+        LLVM_DEBUG(dbgs() << "Info found.\n");
+        ValueInfo &vi = *valueInfo(&a);
+        ii = vi.metadata.get();
+        weight = vi.fixpTypeRootDistance;
       }
       iiPVec.push_back(ii);
       wPVec.push_back(weight);
