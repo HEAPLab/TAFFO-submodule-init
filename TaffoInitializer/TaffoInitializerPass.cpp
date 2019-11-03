@@ -90,28 +90,11 @@ void TaffoInitializer::removeAnnotationCalls(std::vector<Value*>& q)
 }
 
 
-void removeRangeErrorFromMetadata(std::shared_ptr<mdutils::MDInfo> mdinfo)
-{
-  SmallVector<std::shared_ptr<mdutils::MDInfo>, 1> list({mdinfo});
-  while (list.size() > 0) {
-    std::shared_ptr<mdutils::MDInfo> cur = list.pop_back_val();
-    if (!cur.get())
-      continue;
-    if (mdutils::InputInfo *ii = dyn_cast<mdutils::InputInfo>(cur.get())) {
-      ii->IRange.reset();
-      ii->IError.reset();
-    } else if (mdutils::StructInfo *si = dyn_cast<mdutils::StructInfo>(cur.get())){
-      list.append(si->begin(), si->end());
-    }
-  }
-}
-
-
 void TaffoInitializer::setMetadataOfValue(Value *v)
 {
   ValueInfo& vi = *valueInfo(v);
   std::shared_ptr<mdutils::MDInfo> md = vi.metadata;
-  
+
   if (isa<Instruction>(v) || isa<GlobalObject>(v)) {
     mdutils::MetadataManager::setInputInfoInitWeightMetadata(v, vi.fixpTypeRootDistance);
   }
@@ -174,10 +157,14 @@ void TaffoInitializer::buildConversionQueueForRootValues(
   const ArrayRef<Value*>& val,
   std::vector<Value*>& queue)
 {
+  LLVM_DEBUG(dbgs() << "***** begin " << __PRETTY_FUNCTION__ << "\n"
+             << "Initial ");
+
   queue.insert(queue.begin(), val.begin(), val.end());
   for (auto i = queue.begin(); i != queue.end(); i++) {
     valueInfo(*i)->isRoot = true;
   }
+  LLVM_DEBUG(printConversionQueue(queue));
 
   SmallPtrSet<Value *, 8U> visited;
   size_t prevQueueSize = 0;
@@ -328,6 +315,7 @@ void TaffoInitializer::buildConversionQueueForRootValues(
       valueInfo(u)->roots = merge;
     }
   }
+  LLVM_DEBUG(dbgs() << "***** end " << __PRETTY_FUNCTION__ << "\n");
 }
 
 
@@ -585,6 +573,7 @@ Function* TaffoInitializer::createFunctionAndQueue(CallSite *call, SmallPtrSetIm
       }
     }
   }
+
   LLVM_DEBUG(dbgs() << "***** end " << __PRETTY_FUNCTION__ << "\n");
   return newF;
 }
@@ -593,22 +582,22 @@ Function* TaffoInitializer::createFunctionAndQueue(CallSite *call, SmallPtrSetIm
 void TaffoInitializer::printConversionQueue(std::vector<Value*> vals)
 {
   if (vals.size() < 1000) {
-    errs() << "conversion queue:\n";
+    dbgs() << "conversion queue:\n";
     for (Value *val: vals) {
-      errs() << "bt=" << valueInfo(val)->isBacktrackingNode << " ";
-      errs() << "md=" << valueInfo(val)->metadata->toString() << " ";
-      errs() << "[";
+      dbgs() << "bt=" << valueInfo(val)->isBacktrackingNode << " ";
+      dbgs() << "md=" << valueInfo(val)->metadata->toString() << " ";
+      dbgs() << "[";
       for (Value *rootv: valueInfo(val)->roots) {
-        rootv->print(errs());
-        errs() << ' ';
+        rootv->print(dbgs());
+        dbgs() << ' ';
       }
-      errs() << "] ";
-      val->print(errs());
-      errs() << "\n";
+      dbgs() << "] ";
+      val->print(dbgs());
+      dbgs() << "\n";
     }
-    errs() << "\n\n";
+    dbgs() << "\n\n";
   } else {
-    errs() << "not printing the conversion queue because it exceeds 1000 items";
+    dbgs() << "not printing the conversion queue because it exceeds 1000 items";
   }
 }
 
