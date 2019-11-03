@@ -462,14 +462,17 @@ void TaffoInitializer::generateFunctionSpace(std::vector<Value *> &vals, SmallPt
     }
     newF->setMetadata(CLONED_FUN_METADATA, NULL);
     newF->setMetadata(SOURCE_FUN_METADATA, oldFRef);
+
+    mdutils::MetadataManager& mm = mdutils::MetadataManager::getMetadataManager();
     for (Value *v : newVals) {
-      setMetadataOfValue(v);
+      Instruction *i = dyn_cast<Instruction>(v);
+      if (!i || !mm.retrieveInputInfo(*i))
+	setMetadataOfValue(v);
     }
-    
+
     /* Reconstruct the value info for the values which are in the top-level
      * conversion queue and in the oldF
      * Allows us to properly process call functions */
-    mdutils::MetadataManager& mm = mdutils::MetadataManager::getMetadataManager();
     for (BasicBlock& bb: *newF) {
       for (Instruction& i: bb) {
         if (mdutils::MDInfo *mdi = mm.retrieveMDInfo(&i)) {
