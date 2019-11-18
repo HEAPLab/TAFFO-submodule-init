@@ -111,7 +111,10 @@ bool TaffoInitializer::parseAnnotation(SmallPtrSetImpl<Value *>& variables,
   }
   vi.fixpTypeRootDistance = 0;
   vi.isRoot = true;
-  vi.isBacktrackingNode = parser.backtracking;
+  if (!parser.backtracking)
+    vi.backtrackingDepthLeft = 0;
+  else
+    vi.backtrackingDepthLeft = parser.backtrackingDepth;
   vi.metadata = parser.metadata;
   if (startingPoint)
     *startingPoint = parser.startingPoint;

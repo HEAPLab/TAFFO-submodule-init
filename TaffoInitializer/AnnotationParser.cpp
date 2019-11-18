@@ -1,4 +1,5 @@
 #include <cctype>
+#include <climits>
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Debug.h"
 #include "AnnotationParser.h"
@@ -124,10 +125,16 @@ bool AnnotationParser::parseNewSyntax()
 
     } else if (peek("backtracking")) {
       if (peek("(")) {
-        if (!expectBoolean(backtracking)) return false;
+        if (!expectBoolean(backtracking)) {
+          int64_t tmp;
+          if (!expectInteger(tmp)) return false;
+          backtrackingDepth = tmp;
+          backtracking = !(backtrackingDepth == 0);
+        }
         if (!expect(")")) return false;
       } else {
         backtracking = true;
+        backtrackingDepth = UINT_MAX;
       }
       
     } else if (peek("struct")) {

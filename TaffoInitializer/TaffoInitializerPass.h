@@ -29,7 +29,7 @@ STATISTIC(FunctionCloned, "Number of fixed point function inserted");
 namespace taffo {
 
 struct ValueInfo {
-  bool isBacktrackingNode = false;
+  unsigned int backtrackingDepthLeft = 0;
   bool isRoot;
   llvm::SmallPtrSet<llvm::Value*, 5> roots;
   unsigned int fixpTypeRootDistance = UINT_MAX;

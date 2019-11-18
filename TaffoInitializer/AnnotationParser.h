@@ -44,6 +44,7 @@ public:
   llvm::Optional<std::string> target;
   bool startingPoint;
   bool backtracking;
+  unsigned int backtrackingDepth;
   std::shared_ptr<mdutils::MDInfo> metadata;
   
   bool parseAnnotationString(llvm::StringRef annString);

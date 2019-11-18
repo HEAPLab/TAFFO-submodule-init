@@ -1,4 +1,5 @@
 #include <cmath>
+#include <climits>
 #include "llvm/Pass.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Constants.h"
@@ -213,8 +214,10 @@ void TaffoInitializer::buildConversionQueueForRootValues(
         else
           LLVM_DEBUG(dbgs() << "\n");
 
-        if (valueInfo(v)->isBacktrackingNode) {
-          valueInfo(u)->isBacktrackingNode = true;
+        unsigned int vdepth = valueInfo(v)->backtrackingDepthLeft;
+        if (vdepth > 0) {
+          unsigned int udepth = valueInfo(u)->backtrackingDepthLeft;
+          valueInfo(u)->backtrackingDepthLeft = std::max(vdepth, udepth);
         }
         createInfoOfUser(v, u);
       }
@@ -224,7 +227,8 @@ void TaffoInitializer::buildConversionQueueForRootValues(
     next = queue.size();
     for (next = queue.size(); next != 0; next--) {
       Value *v = queue.at(next-1);
-      if (!(valueInfo(v)->isBacktrackingNode))
+      unsigned int mydepth = valueInfo(v)->backtrackingDepthLeft;
+      if (mydepth == 0)
         continue;
 
       Instruction *inst = dyn_cast<Instruction>(v);
@@ -268,7 +272,7 @@ void TaffoInitializer::buildConversionQueueForRootValues(
         }
         valueInfo(v)->isRoot = false;
 
-        valueInfo(u)->isBacktrackingNode = true;
+        valueInfo(u)->backtrackingDepthLeft = mydepth - 1;
 
         bool alreadyIn = false;
         for (int i=0; i<queue.size() && !alreadyIn;) {
@@ -587,7 +591,7 @@ void TaffoInitializer::printConversionQueue(std::vector<Value*> vals)
   if (vals.size() < 1000) {
     dbgs() << "conversion queue:\n";
     for (Value *val: vals) {
-      dbgs() << "bt=" << valueInfo(val)->isBacktrackingNode << " ";
+      dbgs() << "bt=" << valueInfo(val)->backtrackingDepthLeft << " ";
       dbgs() << "md=" << valueInfo(val)->metadata->toString() << " ";
       dbgs() << "[";
       for (Value *rootv: valueInfo(val)->roots) {
