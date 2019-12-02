@@ -214,7 +214,7 @@ void TaffoInitializer::buildConversionQueueForRootValues(
         else
           LLVM_DEBUG(dbgs() << "\n");
 
-        unsigned int vdepth = valueInfo(v)->backtrackingDepthLeft;
+        unsigned int vdepth = std::min(valueInfo(v)->backtrackingDepthLeft, valueInfo(v)->backtrackingDepthLeft - 1);
         if (vdepth > 0) {
           unsigned int udepth = valueInfo(u)->backtrackingDepthLeft;
           valueInfo(u)->backtrackingDepthLeft = std::max(vdepth, udepth);
@@ -236,9 +236,7 @@ void TaffoInitializer::buildConversionQueueForRootValues(
         continue;
 
       #ifdef LOG_BACKTRACK
-      dbgs() << "BACKTRACK ";
-      v->print(dbgs());
-      dbgs() << "\n";
+      dbgs() << "BACKTRACK " << *v << ", depth left = " << mydepth << "\n";
       #endif
 
       for (Value *u: inst->operands()) {
@@ -272,7 +270,7 @@ void TaffoInitializer::buildConversionQueueForRootValues(
         }
         valueInfo(v)->isRoot = false;
 
-        valueInfo(u)->backtrackingDepthLeft = mydepth - 1;
+        valueInfo(u)->backtrackingDepthLeft = std::min(mydepth, mydepth - 1);
 
         bool alreadyIn = false;
         for (int i=0; i<queue.size() && !alreadyIn;) {
