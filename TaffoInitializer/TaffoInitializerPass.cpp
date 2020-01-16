@@ -204,7 +204,7 @@ void TaffoInitializer::buildConversionQueueForRootValues(
           UVInfo = UI->second;
           queue.erase(UI);
         }
-        UI = queue.push_back(u, UVInfo).first;
+        UI = queue.push_back(u, std::move(UVInfo)).first;
         LLVM_DEBUG(dbgs() << "[U] " << *u);
         if (Instruction *i = dyn_cast<Instruction>(u))
           LLVM_DEBUG(dbgs() << "[ " << i->getFunction()->getName() << "]\n");
@@ -218,7 +218,6 @@ void TaffoInitializer::buildConversionQueueForRootValues(
         }
         createInfoOfUser(v, next->second, u, UI->second);
       }
-      next = queue.find(v);
       ++next;
     }
 
@@ -270,32 +269,26 @@ void TaffoInitializer::buildConversionQueueForRootValues(
         bool alreadyIn = false;
         ValueInfo VIU;
         VIU.backtrackingDepthLeft = std::min(mydepth, mydepth - 1);
-        auto UI = queue.begin();
-        for (; UI!=queue.end() && !alreadyIn;) {
-          if (UI->first == u) {
-            VIU = UI->second;
-            if (UI < next)
-              alreadyIn = true;
-            else {
-              UI = queue.erase(UI);
-            }
-          } else {
-            UI++;
-          }
+        auto UI = queue.find(u);
+        if (UI != queue.end()) {
+          if (UI < next)
+            alreadyIn = true;
+          else
+            UI = queue.erase(UI);
         }
         if (!alreadyIn) {
           VIU.isRoot = true;
           #ifdef LOG_BACKTRACK
           dbgs() << "  enqueued\n";
           #endif
-          next = UI = queue.insert(next, u, VIU).first;
+          next = UI = queue.insert(next, u, std::move(VIU)).first;
           ++next;
         } else {
           #ifdef LOG_BACKTRACK
           dbgs() << " already in\n";
           #endif
         }
-
+        
         createInfoOfUser(v, next->second, u, UI->second);
       }
     }
