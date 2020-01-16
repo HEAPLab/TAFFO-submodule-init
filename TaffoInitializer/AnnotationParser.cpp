@@ -53,10 +53,12 @@ bool AnnotationParser::parseOldSyntax()
     sstream >> head;
   }
   if (head == "no_float" || head == "force_no_float") {
-    if (head == "no_float")
+    if (head == "no_float") {
       backtracking = false;
-    else
+    } else {
       backtracking = true;
+      backtrackingDepth = UINT_MAX;
+    }
     sstream >> head;
   }
   if (head == "range")

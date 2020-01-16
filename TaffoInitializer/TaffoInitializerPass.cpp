@@ -170,7 +170,6 @@ void TaffoInitializer::buildConversionQueueForRootValues(
   SmallPtrSet<Value *, 8U> visited;
   size_t prevQueueSize = 0;
   while (prevQueueSize < queue.size()) {
-    queue.print();
     LLVM_DEBUG(dbgs() << "***** buildConversionQueueForRootValues iter " << prevQueueSize << " < " << queue.size() << "\n";);
     prevQueueSize = queue.size();
 
@@ -204,7 +203,6 @@ void TaffoInitializer::buildConversionQueueForRootValues(
         if (UI != queue.end()) {
           UVInfo = UI->second;
           queue.erase(UI);
-          next = queue.find(v);
         }
         UI = queue.push_back(u, UVInfo).first;
         LLVM_DEBUG(dbgs() << "[U] " << *u);
@@ -269,10 +267,9 @@ void TaffoInitializer::buildConversionQueueForRootValues(
         }
         next->second.isRoot = false;
 
-        next->second.backtrackingDepthLeft = std::min(mydepth, mydepth - 1);
-
         bool alreadyIn = false;
         ValueInfo VIU;
+        VIU.backtrackingDepthLeft = std::min(mydepth, mydepth - 1);
         auto UI = queue.begin();
         for (; UI!=queue.end() && !alreadyIn;) {
           if (UI->first == u) {
@@ -281,14 +278,13 @@ void TaffoInitializer::buildConversionQueueForRootValues(
               alreadyIn = true;
             else {
               UI = queue.erase(UI);
-              next = queue.find(v);
             }
           } else {
             UI++;
           }
         }
         if (!alreadyIn) {
-          next->second.isRoot = true;
+          VIU.isRoot = true;
           #ifdef LOG_BACKTRACK
           dbgs() << "  enqueued\n";
           #endif
@@ -551,7 +547,7 @@ Function* TaffoInitializer::createFunctionAndQueue(llvm::CallSite *call, ConvQue
   
     ValueInfo& callVi = vals[callOperand];
     
-    ValueInfo& argumentVi = vals[newArgumentI];
+    ValueInfo& argumentVi = vals.insert(vals.end(), newArgumentI, ValueInfo()).first->second;
     // Mark the argument itself (set it as a new root as well in VRA-less mode)
     argumentVi.metadata.reset(callVi.metadata->clone());
     argumentVi.fixpTypeRootDistance = std::max(callVi.fixpTypeRootDistance, callVi.fixpTypeRootDistance+1);
