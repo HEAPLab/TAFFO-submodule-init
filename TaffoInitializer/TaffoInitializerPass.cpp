@@ -438,7 +438,7 @@ void TaffoInitializer::generateFunctionSpace(ConvQueueT& vals,
       }
     }
 
-    ConvQueueT newVals;
+    std::vector<llvm::Value*> newVals;
     
     Function *newF = createFunctionAndQueue(call, vals, global, newVals);
     call->setCalledFunction(newF);
@@ -460,9 +460,9 @@ void TaffoInitializer::generateFunctionSpace(ConvQueueT& vals,
 
     mdutils::MetadataManager& mm = mdutils::MetadataManager::getMetadataManager();
     for (auto v: newVals) {
-      Instruction *i = dyn_cast<Instruction>(v->first);
+      Instruction *i = dyn_cast<Instruction>(v);
       if (!i || !mm.retrieveInputInfo(*i))
-        setMetadataOfValue(v->first, v->second);
+        setMetadataOfValue(v, vals[v]);
     }
 
     /* Reconstruct the value info for the values which are in the top-level
@@ -472,32 +472,23 @@ void TaffoInitializer::generateFunctionSpace(ConvQueueT& vals,
     for (BasicBlock& bb: *newF) {
       for (Instruction& i: bb) {
         if (mdutils::MDInfo *mdi = mm.retrieveMDInfo(&i)) {
-          ValueInfo vi;
+          ValueInfo& vi = vals.insert(vals.end(), &i, ValueInfo()).first->second;
           vi.metadata.reset(mdi->clone());
           int weight = mm.retrieveInputInfoInitWeightMetadata(&i);
           if (weight >= 0)
             vi.fixpTypeRootDistance = weight;
-          newVals.push_back(&i, vi);
+          vals.push_back(&i, vi);
           LLVM_DEBUG(dbgs() << "  enqueued & rebuilt valueInfo of " << i << " in " << newF->getName() << "\n");
         }
       }
     }
-
-    if (callTrace.count(oldF)) {
-      continue;
-    }
-    callTrace.insert(oldF);
-    callTrace.insert(newF);
-    generateFunctionSpace(newVals, global, callTrace);
-    callTrace.erase(newF);
-    callTrace.erase(oldF);
   }
   
   LLVM_DEBUG(dbgs() << "***** end " << __PRETTY_FUNCTION__ << "\n");
 }
 
 
-Function* TaffoInitializer::createFunctionAndQueue(llvm::CallSite *call, ConvQueueT& vals, ConvQueueT& global, ConvQueueT& convQueue)
+Function* TaffoInitializer::createFunctionAndQueue(llvm::CallSite *call, ConvQueueT& vals, ConvQueueT& global, std::vector<llvm::Value*> &convQueue)
 {
   LLVM_DEBUG(dbgs() << "***** begin " << __PRETTY_FUNCTION__ << "\n");
   
@@ -572,7 +563,7 @@ Function* TaffoInitializer::createFunctionAndQueue(llvm::CallSite *call, ConvQue
   for (auto val: tmpVals){
     if (Instruction *inst = dyn_cast<Instruction>(val.first)) {
       if (inst->getFunction()==newF){
-        convQueue.push_back(val);
+        vals.push_back(val);
         LLVM_DEBUG(dbgs() << "  enqueued " << *inst << " in " << newF->getName() << "\n");
       }
     }
