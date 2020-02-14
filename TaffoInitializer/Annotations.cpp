@@ -111,7 +111,6 @@ bool TaffoInitializer::parseAnnotation(MultiValueMap<Value *, ValueInfo>& variab
     return false;
   }
   vi.fixpTypeRootDistance = 0;
-  vi.isRoot = true;
   if (!parser.backtracking)
     vi.backtrackingDepthLeft = 0;
   else
