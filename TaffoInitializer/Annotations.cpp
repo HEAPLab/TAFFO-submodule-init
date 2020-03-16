@@ -16,9 +16,8 @@ using namespace llvm;
 using namespace taffo;
 
 
-void TaffoInitializer::readGlobalAnnotations(Module &m,
-    MultiValueMap<Value *, ValueInfo>& variables,
-		bool functionAnnotation)
+void TaffoInitializer::readGlobalAnnotations(Module &m, SmallPtrSetImpl<Value *>& variables,
+					     bool functionAnnotation)
 {
   GlobalVariable *globAnnos = m.getGlobalVariable("llvm.global.annotations");
 
@@ -50,7 +49,7 @@ void TaffoInitializer::readGlobalAnnotations(Module &m,
 }
 
 
-void TaffoInitializer::readLocalAnnotations(llvm::Function &f, MultiValueMap<Value *, ValueInfo>& variables)
+void TaffoInitializer::readLocalAnnotations(llvm::Function &f, llvm::SmallPtrSetImpl<llvm::Value *> &variables)
 {
   bool found = false;
   for (inst_iterator iIt = inst_begin(&f), iItEnd = inst_end(&f); iIt != iItEnd; iIt++) {
@@ -59,9 +58,9 @@ void TaffoInitializer::readLocalAnnotations(llvm::Function &f, MultiValueMap<Val
         continue;
 
       if (call->getCalledFunction()->getName() == "llvm.var.annotation") {
-        bool startingPoint = false;
+	bool startingPoint = false;
         parseAnnotation(variables, cast<ConstantExpr>(iIt->getOperand(1)), iIt->getOperand(0), &startingPoint);
-        found |= startingPoint;
+	found |= startingPoint;
       }
     }
   }
@@ -71,12 +70,12 @@ void TaffoInitializer::readLocalAnnotations(llvm::Function &f, MultiValueMap<Val
 }
 
 
-void TaffoInitializer::readAllLocalAnnotations(llvm::Module &m, MultiValueMap<Value *, ValueInfo>& res)
+void TaffoInitializer::readAllLocalAnnotations(llvm::Module &m, llvm::SmallPtrSetImpl<llvm::Value *> &res)
 {
   for (Function &f: m.functions()) {
-    MultiValueMap<Value *, ValueInfo> t;
+    SmallPtrSet<Value*, 32> t;
     readLocalAnnotations(f, t);
-    res.insert(res.end(), t.begin(), t.end());
+    res.insert(t.begin(), t.end());
 
     /* Otherwise dce pass ignore the function
      * (removed also where it's not required) */
@@ -85,7 +84,7 @@ void TaffoInitializer::readAllLocalAnnotations(llvm::Module &m, MultiValueMap<Va
 }
 
 // Return true on success, false on error
-bool TaffoInitializer::parseAnnotation(MultiValueMap<Value *, ValueInfo>& variables,
+bool TaffoInitializer::parseAnnotation(SmallPtrSetImpl<Value *>& variables,
 				       ConstantExpr *annoPtrInst, Value *instr,
 				       bool *startingPoint)
 {
@@ -122,29 +121,31 @@ bool TaffoInitializer::parseAnnotation(MultiValueMap<Value *, ValueInfo>& variab
   vi.target = parser.target;
 
   if (Instruction *toconv = dyn_cast<Instruction>(instr)) {
-    variables.push_back(toconv->getOperand(0), vi);
+    variables.insert(toconv->getOperand(0));
+    *valueInfo(toconv->getOperand(0)) = vi;
     
   } else if (Function *fun = dyn_cast<Function>(instr)) {
     enabledFunctions.insert(fun);
     for (auto user: fun->users()) {
       if (!(isa<CallInst>(user) || isa<InvokeInst>(user)))
         continue;
-      variables.push_back(user, vi);
+      variables.insert(user);
+      *valueInfo(user) = vi;
     }
     
   } else {
-    variables.push_back(instr, vi);
+    variables.insert(instr);
+    *valueInfo(instr) = vi;
   }
 
   return true;
 }
 
 
-void TaffoInitializer::removeNoFloatTy(MultiValueMap<Value *, ValueInfo>& res)
+void TaffoInitializer::removeNoFloatTy(SmallPtrSetImpl<Value *> &res)
 {
-  for (auto PIt: res) {
+  for (auto it: res) {
     Type *ty;
-    Value *it = PIt->first;
 
     if (AllocaInst *alloca = dyn_cast<AllocaInst>(it)) {
       ty = alloca->getAllocatedType();
@@ -177,7 +178,7 @@ void TaffoInitializer::removeNoFloatTy(MultiValueMap<Value *, ValueInfo>& res)
 
 void TaffoInitializer::printAnnotatedObj(Module &m)
 {
-  MultiValueMap<Value *, ValueInfo> res;
+  SmallPtrSet<Value*, 32> res;
 
   readGlobalAnnotations(m, res, true);
   errs() << "Annotated Function: \n";
@@ -185,7 +186,7 @@ void TaffoInitializer::printAnnotatedObj(Module &m)
   {
     for (auto it : res)
     {
-      errs() << " -> " << *it->first << "\n";
+      errs() << " -> " << *it << "\n";
     }
     errs() << "\n";
   }
@@ -197,7 +198,7 @@ void TaffoInitializer::printAnnotatedObj(Module &m)
   {
     for (auto it : res)
     {
-      errs() << " -> " << *it->first << "\n";
+      errs() << " -> " << *it << "\n";
     }
     errs() << "\n";
   }
@@ -213,7 +214,7 @@ void TaffoInitializer::printAnnotatedObj(Module &m)
       errs() << "\nLocal Set: \n";
       for (auto it : res)
       {
-        errs() << " -> " << *it->first << "\n";
+        errs() << " -> " << *it << "\n";
       }
     }
     errs() << "\n";

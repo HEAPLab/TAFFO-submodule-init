@@ -42,21 +42,20 @@ bool TaffoInitializer::runOnModule(Module &m)
 {
   DEBUG_WITH_TYPE(DEBUG_ANNOTATION, printAnnotatedObj(m));
 
-  ConvQueueT local;
-  ConvQueueT global;
+  llvm::SmallPtrSet<llvm::Value *, 32> local;
+  llvm::SmallPtrSet<llvm::Value *, 32> global;
   readAllLocalAnnotations(m, local);
   readGlobalAnnotations(m, global, true);
   readGlobalAnnotations(m, global, false);
-  
-  ConvQueueT rootsa;
-  rootsa.insert(rootsa.end(), global.begin(), global.end());
-  rootsa.insert(rootsa.end(), local.begin(), local.end());
+
+  std::vector<Value*> rootsa(local.begin(), local.end());
+  rootsa.insert(rootsa.begin(), global.begin(), global.end());
   AnnotationCount = rootsa.size();
 
-  ConvQueueT vals;
+  std::vector<Value*> vals;
   buildConversionQueueForRootValues(rootsa, vals);
-  for (auto V: vals) {
-    setMetadataOfValue(V->first, V->second);
+  for (Value *v: vals) {
+    setMetadataOfValue(v);
   }
   removeAnnotationCalls(vals);
 
@@ -64,22 +63,22 @@ bool TaffoInitializer::runOnModule(Module &m)
   generateFunctionSpace(vals, global, callTrace);
 
   LLVM_DEBUG(printConversionQueue(vals));
-  setFunctionArgsMetadata(m, vals);
+  setFunctionArgsMetadata(m);
 
   return true;
 }
 
 
-void TaffoInitializer::removeAnnotationCalls(ConvQueueT& q)
+void TaffoInitializer::removeAnnotationCalls(std::vector<Value*>& q)
 {
   for (auto i = q.begin(); i != q.end();) {
-    Value *v = i->first;
+    Value *v = *i;
     
     if (CallInst *anno = dyn_cast<CallInst>(v)) {
       if (anno->getCalledFunction()) {
         if (anno->getCalledFunction()->getName() == "llvm.var.annotation") {
-          i = q.erase(i);
           anno->eraseFromParent();
+          i = q.erase(i);
           continue;
         }
       }
@@ -92,8 +91,9 @@ void TaffoInitializer::removeAnnotationCalls(ConvQueueT& q)
 }
 
 
-void TaffoInitializer::setMetadataOfValue(Value *v, ValueInfo& vi)
+void TaffoInitializer::setMetadataOfValue(Value *v)
 {
+  ValueInfo& vi = *valueInfo(v);
   std::shared_ptr<mdutils::MDInfo> md = vi.metadata;
 
   if (isa<Instruction>(v) || isa<GlobalObject>(v)) {
@@ -122,7 +122,7 @@ void TaffoInitializer::setMetadataOfValue(Value *v, ValueInfo& vi)
 }
 
 
-void TaffoInitializer::setFunctionArgsMetadata(Module &m, ConvQueueT& Q)
+void TaffoInitializer::setFunctionArgsMetadata(Module &m)
 {
   std::vector<mdutils::MDInfo *> iiPVec;
   std::vector<int> wPVec;
@@ -135,9 +135,9 @@ void TaffoInitializer::setFunctionArgsMetadata(Module &m, ConvQueueT& Q)
       LLVM_DEBUG(dbgs() << "Processing arg " << a << "\n");
       mdutils::MDInfo *ii = nullptr;
       int weight = -1;
-      if (Q.count(&a)) {
+      if (hasInfo(&a)) {
         LLVM_DEBUG(dbgs() << "Info found.\n");
-        ValueInfo &vi = Q[&a];
+        ValueInfo &vi = *valueInfo(&a);
         ii = vi.metadata.get();
         weight = vi.fixpTypeRootDistance;
       }
@@ -155,15 +155,15 @@ void TaffoInitializer::setFunctionArgsMetadata(Module &m, ConvQueueT& Q)
 
 
 void TaffoInitializer::buildConversionQueueForRootValues(
-    const ConvQueueT& val,
-    ConvQueueT& queue)
+  const ArrayRef<Value*>& val,
+  std::vector<Value*>& queue)
 {
   LLVM_DEBUG(dbgs() << "***** begin " << __PRETTY_FUNCTION__ << "\n"
              << "Initial ");
 
   queue.insert(queue.begin(), val.begin(), val.end());
-  for (auto i: queue) {
-    i->second.isRoot = true;
+  for (auto i = queue.begin(); i != queue.end(); i++) {
+    valueInfo(*i)->isRoot = true;
   }
   LLVM_DEBUG(printConversionQueue(queue));
 
@@ -173,17 +173,17 @@ void TaffoInitializer::buildConversionQueueForRootValues(
     LLVM_DEBUG(dbgs() << "***** buildConversionQueueForRootValues iter " << prevQueueSize << " < " << queue.size() << "\n";);
     prevQueueSize = queue.size();
 
-    auto next = queue.begin();
-    while (next != queue.end()) {
-      Value *v = next->first;
+    size_t next = 0;
+    while (next < queue.size()) {
+      Value *v = queue.at(next);
       visited.insert(v);
       
       LLVM_DEBUG(dbgs() << "[V] " << *v);
       if (Instruction *i = dyn_cast<Instruction>(v))
-        LLVM_DEBUG(dbgs() << "[ " << i->getFunction()->getName() << "]\n");
-      else
-        LLVM_DEBUG(dbgs() << "\n");
-      LLVM_DEBUG(dbgs() << "    distance = " << next->second.fixpTypeRootDistance << "\n");
+          LLVM_DEBUG(dbgs() << "[ " << i->getFunction()->getName() << "]\n");
+        else
+          LLVM_DEBUG(dbgs() << "\n");
+      LLVM_DEBUG(dbgs() << "    distance = " << valueInfo(v)->fixpTypeRootDistance << "\n");
 
       for (auto *u: v->users()) {
         /* ignore u if it is the global annotation array */
@@ -198,32 +198,36 @@ void TaffoInitializer::buildConversionQueueForRootValues(
 
         /* Insert u at the end of the queue.
          * If u exists already in the queue, *move* it to the end instead. */
-        auto UI = queue.find(u);
-        ValueInfo UVInfo;
-        if (UI != queue.end()) {
-          UVInfo = UI->second;
-          queue.erase(UI);
+        for (int i=0; i<queue.size();) {
+          if (queue[i] == u) {
+            queue.erase(queue.begin() + i);
+            if (i < next)
+              next--;
+          } else {
+            i++;
+          }
         }
-        UI = queue.push_back(u, std::move(UVInfo)).first;
+        queue.push_back(u);
         LLVM_DEBUG(dbgs() << "[U] " << *u);
         if (Instruction *i = dyn_cast<Instruction>(u))
           LLVM_DEBUG(dbgs() << "[ " << i->getFunction()->getName() << "]\n");
         else
           LLVM_DEBUG(dbgs() << "\n");
 
-        unsigned int vdepth = std::min(next->second.backtrackingDepthLeft, next->second.backtrackingDepthLeft - 1);
+        unsigned int vdepth = valueInfo(v)->backtrackingDepthLeft;
         if (vdepth > 0) {
-          unsigned int udepth = UI->second.backtrackingDepthLeft;
-          UI->second.backtrackingDepthLeft = std::max(vdepth, udepth);
+          unsigned int udepth = valueInfo(u)->backtrackingDepthLeft;
+          valueInfo(u)->backtrackingDepthLeft = std::max(vdepth, udepth);
         }
-        createInfoOfUser(v, next->second, u, UI->second);
+        createInfoOfUser(v, u);
       }
-      ++next;
+      next++;
     }
 
-    for (next = queue.end(); next != queue.begin();) {
-      Value *v = (--next)->first;
-      unsigned int mydepth = next->second.backtrackingDepthLeft;
+    next = queue.size();
+    for (next = queue.size(); next != 0; next--) {
+      Value *v = queue.at(next-1);
+      unsigned int mydepth = valueInfo(v)->backtrackingDepthLeft;
       if (mydepth == 0)
         continue;
 
@@ -232,7 +236,9 @@ void TaffoInitializer::buildConversionQueueForRootValues(
         continue;
 
       #ifdef LOG_BACKTRACK
-      dbgs() << "BACKTRACK " << *v << ", depth left = " << mydepth << "\n";
+      dbgs() << "BACKTRACK ";
+      v->print(dbgs());
+      dbgs() << "\n";
       #endif
 
       for (Value *u: inst->operands()) {
@@ -264,59 +270,64 @@ void TaffoInitializer::buildConversionQueueForRootValues(
           #endif
           continue;
         }
-        next->second.isRoot = false;
+        valueInfo(v)->isRoot = false;
+
+        valueInfo(u)->backtrackingDepthLeft = mydepth - 1;
 
         bool alreadyIn = false;
-        ValueInfo VIU;
-        VIU.backtrackingDepthLeft = std::min(mydepth, mydepth - 1);
-        auto UI = queue.find(u);
-        if (UI != queue.end()) {
-          if (UI < next)
-            alreadyIn = true;
-          else
-            UI = queue.erase(UI);
+        for (int i=0; i<queue.size() && !alreadyIn;) {
+          if (queue[i] == u) {
+            if (i < next)
+              alreadyIn = true;
+            else
+              queue.erase(queue.begin() + i);
+          } else {
+            i++;
+          }
         }
         if (!alreadyIn) {
-          VIU.isRoot = true;
+          valueInfo(u)->isRoot = true;
           #ifdef LOG_BACKTRACK
           dbgs() << "  enqueued\n";
           #endif
-          next = UI = queue.insert(next, u, std::move(VIU)).first;
-          ++next;
+          queue.insert(queue.begin()+next-1, u);
+          next++;
         } else {
           #ifdef LOG_BACKTRACK
           dbgs() << " already in\n";
           #endif
         }
-        
-        createInfoOfUser(v, next->second, u, UI->second);
+
+        createInfoOfUser(v, u);
       }
     }
   }
 
-  for (auto VVI: queue) {
-    if (VVI->second.isRoot) {
-      VVI->second.roots = {VVI->first};
+  for (Value *v: queue) {
+    if (valueInfo(v)->isRoot) {
+      valueInfo(v)->roots = {v};
     }
 
-    SmallPtrSet<Value*, 5> newroots = VVI->second.roots;
-    for (Value *u: VVI->first->users()) {
-      auto UVI = queue.find(u);
-      if (UVI == queue.end())
+    SmallPtrSet<Value*, 5> newroots = valueInfo(v)->roots;
+    for (Value *u: v->users()) {
+      if (!hasInfo(u))
         continue;
 
-      auto oldroots = UVI->second.roots;
+      auto oldroots = valueInfo(u)->roots;
       SmallPtrSet<Value*, 5> merge(newroots);
       merge.insert(oldroots.begin(), oldroots.end());
-      UVI->second.roots = merge;
+      valueInfo(u)->roots = merge;
     }
   }
   LLVM_DEBUG(dbgs() << "***** end " << __PRETTY_FUNCTION__ << "\n");
 }
 
 
-void TaffoInitializer::createInfoOfUser(Value *used, const ValueInfo& vinfo, Value *user, ValueInfo& uinfo)
+void TaffoInitializer::createInfoOfUser(Value *used, Value *user)
 {
+  ValueInfo vinfo = *valueInfo(used);
+  ValueInfo &uinfo = *valueInfo(user);
+
   /* Copy metadata from the closest instruction to a root */
   LLVM_DEBUG(dbgs() << "root distances: " << uinfo.fixpTypeRootDistance << " > " << vinfo.fixpTypeRootDistance << " + 1\n");
   if (!(uinfo.fixpTypeRootDistance <= std::max(vinfo.fixpTypeRootDistance, vinfo.fixpTypeRootDistance+1))) {
@@ -413,13 +424,12 @@ TaffoInitializer::extractGEPIMetadata(const llvm::Value *user,
 }
 
 
-void TaffoInitializer::generateFunctionSpace(ConvQueueT& vals,
-    ConvQueueT& global, SmallPtrSet<Function *, 10> &callTrace)
+void TaffoInitializer::generateFunctionSpace(std::vector<Value *> &vals, SmallPtrSetImpl<llvm::Value *> &global,
+                                             SmallPtrSet<Function *, 10> &callTrace)
 {
   LLVM_DEBUG(dbgs() << "***** begin " << __PRETTY_FUNCTION__ << "\n");
   
-  for (auto VVI: vals) {
-    Value *v = VVI->first;
+  for (Value *v: vals) {
     if (!(isa<CallInst>(v) || isa<InvokeInst>(v)))
       continue;
     CallSite *call = new CallSite(v);
@@ -438,9 +448,8 @@ void TaffoInitializer::generateFunctionSpace(ConvQueueT& vals,
       }
     }
 
-    std::vector<llvm::Value*> newVals;
-    
-    Function *newF = createFunctionAndQueue(call, vals, global, newVals);
+    std::vector<Value*> newVals;
+    Function *newF = createFunctionAndQueue(call, global, newVals);
     call->setCalledFunction(newF);
     enabledFunctions.insert(newF);
 
@@ -459,49 +468,55 @@ void TaffoInitializer::generateFunctionSpace(ConvQueueT& vals,
     newF->setMetadata(SOURCE_FUN_METADATA, oldFRef);
 
     mdutils::MetadataManager& mm = mdutils::MetadataManager::getMetadataManager();
-    for (auto v: newVals) {
+    for (Value *v : newVals) {
       Instruction *i = dyn_cast<Instruction>(v);
       if (!i || !mm.retrieveInputInfo(*i))
-        setMetadataOfValue(v, vals[v]);
+	setMetadataOfValue(v);
     }
 
     /* Reconstruct the value info for the values which are in the top-level
      * conversion queue and in the oldF
      * Allows us to properly process call functions */
-    // TODO: REWRITE USING THE VALUE MAP RETURNED BY CloneFunctionInto
     for (BasicBlock& bb: *newF) {
       for (Instruction& i: bb) {
         if (mdutils::MDInfo *mdi = mm.retrieveMDInfo(&i)) {
-          ValueInfo& vi = vals.insert(vals.end(), &i, ValueInfo()).first->second;
-          vi.metadata.reset(mdi->clone());
+          newVals.push_back(&i);
+          valueInfo(&i)->metadata.reset(mdi->clone());
           int weight = mm.retrieveInputInfoInitWeightMetadata(&i);
           if (weight >= 0)
-            vi.fixpTypeRootDistance = weight;
-          vals.push_back(&i, vi);
+            valueInfo(&i)->fixpTypeRootDistance = weight;
           LLVM_DEBUG(dbgs() << "  enqueued & rebuilt valueInfo of " << i << " in " << newF->getName() << "\n");
         }
       }
     }
+
+    if (callTrace.count(oldF)) {
+      continue;
+    }
+    callTrace.insert(oldF);
+    callTrace.insert(newF);
+    generateFunctionSpace(newVals, global, callTrace);
+    callTrace.erase(newF);
+    callTrace.erase(oldF);
   }
   
   LLVM_DEBUG(dbgs() << "***** end " << __PRETTY_FUNCTION__ << "\n");
 }
 
 
-Function* TaffoInitializer::createFunctionAndQueue(llvm::CallSite *call, ConvQueueT& vals, ConvQueueT& global, std::vector<llvm::Value*> &convQueue)
+Function* TaffoInitializer::createFunctionAndQueue(CallSite *call, SmallPtrSetImpl<Value *> &global,
+    std::vector<Value *> &convQueue)
 {
   LLVM_DEBUG(dbgs() << "***** begin " << __PRETTY_FUNCTION__ << "\n");
   
-  /* vals: conversion queue of caller
-   * global: global values to copy in all converison queues
-   * convQueue: output conversion queue of this function */
-  
   Function *oldF = call->getCalledFunction();
+  bool special = HandledFunction::isHandled(oldF);
   Function *newF = Function::Create(
       oldF->getFunctionType(), oldF->getLinkage(),
       oldF->getName(), oldF->getParent());
 
   ValueToValueMapTy mapArgs; // Create Val2Val mapping and clone function
+
   Function::arg_iterator newArgumentI = newF->arg_begin();
   Function::arg_iterator oldArgumentI = oldF->arg_begin();
   for (; oldArgumentI != oldF->arg_end() ; oldArgumentI++, newArgumentI++) {
@@ -509,43 +524,58 @@ Function* TaffoInitializer::createFunctionAndQueue(llvm::CallSite *call, ConvQue
     mapArgs.insert(std::make_pair(oldArgumentI, newArgumentI));
   }
   SmallVector<ReturnInst*,100> returns;
+  if(!special){
   CloneFunctionInto(newF, oldF, mapArgs, true, returns);
-  newF->setLinkage(GlobalVariable::LinkageTypes::InternalLinkage);
+  }
+  if(!special){
+  newF->setLinkage(GlobalVariable::LinkageTypes::InternalLinkage);}
+
   FunctionCloned++;
 
-  ConvQueueT roots;
+  std::vector<Value*> roots; //propagate fixp conversion
   oldArgumentI = oldF->arg_begin();
   newArgumentI = newF->arg_begin();
+  LLVM_DEBUG(dbgs() << "Old function has argument " << oldF->arg_size() << "\n");
+  LLVM_DEBUG(dbgs() << "New function has argument " << newF->arg_size() << "\n");
+
   LLVM_DEBUG(dbgs() << "Create function from " << oldF->getName() << " to " << newF->getName() << "\n");
+
   LLVM_DEBUG(dbgs() << "  callsite instr " << *call->getInstruction() << " [" << call->getInstruction()->getFunction()->getName() << "]\n");
+
   for (int i=0; oldArgumentI != oldF->arg_end() ; oldArgumentI++, newArgumentI++, i++) {
+  
     Value *callOperand = call->getInstruction()->getOperand(i);
-    Value *allocaOfArgument = newArgumentI->user_begin()->getOperand(1);
-    if (!isa<AllocaInst>(allocaOfArgument))
+    Value *allocaOfArgument = nullptr;
+    if(!special){
+    allocaOfArgument = newArgumentI->user_begin()->getOperand(1);
+    }
+
+    if (allocaOfArgument != nullptr && !isa<AllocaInst>(allocaOfArgument))
       allocaOfArgument = nullptr;
-    
-    if (!vals.count(callOperand)) {
+      
+    if (!hasInfo(callOperand)) {
       LLVM_DEBUG(dbgs() << "  Arg nr. " << i << " skipped, callOperand has no valueInfo\n");
       continue;
     }
-  
-    ValueInfo& callVi = vals[callOperand];
+
+    ValueInfo& callVi = *valueInfo(callOperand);
     
-    ValueInfo& argumentVi = vals.insert(vals.end(), newArgumentI, ValueInfo()).first->second;
+    ValueInfo& argumentVi = *valueInfo(newArgumentI);
     // Mark the argument itself (set it as a new root as well in VRA-less mode)
     argumentVi.metadata.reset(callVi.metadata->clone());
     argumentVi.fixpTypeRootDistance = std::max(callVi.fixpTypeRootDistance, callVi.fixpTypeRootDistance+1);
     if (!allocaOfArgument) {
-      roots.push_back(newArgumentI, argumentVi);
+      roots.push_back(newArgumentI);
     }
+ 
     
     if (allocaOfArgument) {
-      ValueInfo& allocaVi = vals.insert(vals.end(), allocaOfArgument, ValueInfo()).first->second;
+      ValueInfo& allocaVi = *valueInfo(allocaOfArgument);
       // Mark the alloca used for the argument (in O0 opt lvl)
       // let it be a root in VRA-less mode
       allocaVi.metadata.reset(callVi.metadata->clone());
       allocaVi.fixpTypeRootDistance = std::max(callVi.fixpTypeRootDistance, callVi.fixpTypeRootDistance+2);
-      roots.push_back(allocaOfArgument, allocaVi);
+      roots.push_back(allocaOfArgument);
     }
     
     LLVM_DEBUG(dbgs() << "  Arg nr. " << i << " processed, isRoot = " << argumentVi.isRoot << "\n");
@@ -554,16 +584,16 @@ Function* TaffoInitializer::createFunctionAndQueue(llvm::CallSite *call, ConvQue
       LLVM_DEBUG(dbgs() << "    enqueued alloca of argument " << *allocaOfArgument << "\n");
   }
 
-  ConvQueueT tmpVals;
+  std::vector<Value*> tmpVals;
   roots.insert(roots.begin(), global.begin(), global.end());
-  ConvQueueT localFix;
+  SmallPtrSet<Value*, 32> localFix;
   readLocalAnnotations(*newF, localFix);
   roots.insert(roots.begin(), localFix.begin(), localFix.end());
   buildConversionQueueForRootValues(roots, tmpVals);
-  for (auto val: tmpVals){
-    if (Instruction *inst = dyn_cast<Instruction>(val.first)) {
+  for (Value *val : tmpVals){
+    if (Instruction *inst = dyn_cast<Instruction>(val)) {
       if (inst->getFunction()==newF){
-        vals.push_back(val);
+        convQueue.push_back(val);
         LLVM_DEBUG(dbgs() << "  enqueued " << *inst << " in " << newF->getName() << "\n");
       }
     }
@@ -574,19 +604,21 @@ Function* TaffoInitializer::createFunctionAndQueue(llvm::CallSite *call, ConvQue
 }
 
 
-void TaffoInitializer::printConversionQueue(ConvQueueT& vals)
+void TaffoInitializer::printConversionQueue(std::vector<Value*> vals)
 {
   if (vals.size() < 1000) {
     dbgs() << "conversion queue:\n";
-    for (auto val: vals) {
-      dbgs() << "bt=" << val.second.backtrackingDepthLeft << " ";
-      dbgs() << "md=" << val.second.metadata->toString() << " ";
+    for (Value *val: vals) {
+      dbgs() << "bt=" << valueInfo(val)->backtrackingDepthLeft << " ";
+      dbgs() << "md=" << valueInfo(val)->metadata->toString() << " ";
       dbgs() << "[";
-      for (Value *rootv: val.second.roots) {
+      for (Value *rootv: valueInfo(val)->roots) {
         rootv->print(dbgs());
         dbgs() << ' ';
       }
-      dbgs() << "] " << *val.first << "\n";
+      dbgs() << "] ";
+      val->print(dbgs());
+      dbgs() << "\n";
     }
     dbgs() << "\n\n";
   } else {
