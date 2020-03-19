@@ -492,11 +492,8 @@ Function* TaffoInitializer::createFunctionAndQueue(llvm::CallSite *call, ConvQue
 {
   LLVM_DEBUG(dbgs() << "***** begin " << __PRETTY_FUNCTION__ << "\n");
   
-  /* vals: conversion queue of caller
-   * global: global values to copy in all converison queues
-   * convQueue: output conversion queue of this function */
-  
   Function *oldF = call->getCalledFunction();
+  bool special = HandledFunction::isHandled(oldF);
   Function *newF = Function::Create(
       oldF->getFunctionType(), oldF->getLinkage(),
       oldF->getName(), oldF->getParent());
@@ -509,8 +506,12 @@ Function* TaffoInitializer::createFunctionAndQueue(llvm::CallSite *call, ConvQue
     mapArgs.insert(std::make_pair(oldArgumentI, newArgumentI));
   }
   SmallVector<ReturnInst*,100> returns;
+  if(!special){
   CloneFunctionInto(newF, oldF, mapArgs, true, returns);
-  newF->setLinkage(GlobalVariable::LinkageTypes::InternalLinkage);
+  }
+  if(!special){
+  newF->setLinkage(GlobalVariable::LinkageTypes::InternalLinkage);}
+
   FunctionCloned++;
 
   ConvQueueT roots;
@@ -520,10 +521,14 @@ Function* TaffoInitializer::createFunctionAndQueue(llvm::CallSite *call, ConvQue
   LLVM_DEBUG(dbgs() << "  callsite instr " << *call->getInstruction() << " [" << call->getInstruction()->getFunction()->getName() << "]\n");
   for (int i=0; oldArgumentI != oldF->arg_end() ; oldArgumentI++, newArgumentI++, i++) {
     Value *callOperand = call->getInstruction()->getOperand(i);
-    Value *allocaOfArgument = newArgumentI->user_begin()->getOperand(1);
-    if (!isa<AllocaInst>(allocaOfArgument))
+    Value *allocaOfArgument = nullptr;
+    if(!special){
+    allocaOfArgument = newArgumentI->user_begin()->getOperand(1);
+    }
+
+    if (allocaOfArgument != nullptr && !isa<AllocaInst>(allocaOfArgument))
       allocaOfArgument = nullptr;
-    
+      
     if (!vals.count(callOperand)) {
       LLVM_DEBUG(dbgs() << "  Arg nr. " << i << " skipped, callOperand has no valueInfo\n");
       continue;
@@ -564,7 +569,6 @@ Function* TaffoInitializer::createFunctionAndQueue(llvm::CallSite *call, ConvQue
     if (Instruction *inst = dyn_cast<Instruction>(val.first)) {
       if (inst->getFunction()==newF){
         vals.push_back(val);
-        convQueue.push_back(val.first);
         LLVM_DEBUG(dbgs() << "  enqueued " << *inst << " in " << newF->getName() << "\n");
       }
     }

@@ -11,8 +11,9 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Support/CommandLine.h"
-#include "MultiValueMap.h"
 #include "InputInfo.h"
+#include "MultiValueMap.h"
+#include "handle.h"
 
 
 #ifndef __TAFFO_INITIALIZER_PASS_H__
@@ -73,6 +74,9 @@ struct TaffoInitializer : public llvm::ModulePass {
 
   bool isSpecialFunction(const llvm::Function* f) {
     llvm::StringRef fName = f->getName();
+    if(taffo::HandledFunction::isHandled(f)){
+      return false;
+    }
     return fName.startswith("llvm.") || f->getBasicBlockList().empty();
   };
 };
