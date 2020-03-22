@@ -514,7 +514,9 @@ Function* TaffoInitializer::createFunctionAndQueue(llvm::CallSite *call, ConvQue
   CloneFunctionInto(newF, oldF, mapArgs, true, returns);
   }
   if(!special){
-  newF->setLinkage(GlobalVariable::LinkageTypes::InternalLinkage);}
+  newF->setLinkage(GlobalVariable::LinkageTypes::InternalLinkage);}else{
+    newF->setLinkage(GlobalVariable::LinkageTypes::ExternalWeakLinkage);
+    }
 
   FunctionCloned++;
 
