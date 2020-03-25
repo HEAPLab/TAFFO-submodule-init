@@ -498,6 +498,7 @@ Function* TaffoInitializer::createFunctionAndQueue(llvm::CallSite *call, ConvQue
   
   Function *oldF = call->getCalledFunction();
   bool special = HandledFunction::isHandled(oldF);
+  LLVM_DEBUG(dbgs()<< oldF->getName() <<" is handled " << special << "\n");
   Function *newF = Function::Create(
       oldF->getFunctionType(), oldF->getLinkage(),
       oldF->getName(), oldF->getParent());
@@ -510,12 +511,17 @@ Function* TaffoInitializer::createFunctionAndQueue(llvm::CallSite *call, ConvQue
     mapArgs.insert(std::make_pair(oldArgumentI, newArgumentI));
   }
   SmallVector<ReturnInst*,100> returns;
+ 
   if(!special){
   CloneFunctionInto(newF, oldF, mapArgs, true, returns);
   }
   if(!special){
-  newF->setLinkage(GlobalVariable::LinkageTypes::InternalLinkage);}else{
+  newF->setLinkage(GlobalVariable::LinkageTypes::InternalLinkage);}
+  else{
+    LLVM_DEBUG(dbgs()<< "set linkage\n");
     newF->setLinkage(GlobalVariable::LinkageTypes::ExternalWeakLinkage);
+    oldF->setLinkage(GlobalVariable::LinkageTypes::ExternalWeakLinkage);
+     LLVM_DEBUG(newF->dump(); oldF->dump(););
     }
 
   FunctionCloned++;
