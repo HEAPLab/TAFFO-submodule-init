@@ -1,4 +1,5 @@
 #include <limits>
+#include <map>
 #include "llvm/IR/CallSite.h"
 #include "llvm/Pass.h"
 #include "llvm/IR/Module.h"
@@ -43,31 +44,44 @@ struct TaffoInitializer : public llvm::ModulePass {
   
   using ConvQueueT = MultiValueMap<llvm::Value *, ValueInfo>;
   
+  ConvQueueT globalQueue;
+  std::map<llvm::Function *, ConvQueueT> functionQueues;
+  
+  ValueInfo *findValueInfo(llvm::Function *Func, llvm::Value *V) {
+    auto F = globalQueue.find(V);
+    if (F != globalQueue.end())
+      return &(F->second);
+    F = functionQueues[Func].find(V);
+    if (F != functionQueues[Func].end())
+      return &(F->second);
+    return nullptr;
+  }
+  
   llvm::SmallPtrSet<llvm::Function *, 32> enabledFunctions;
   
   TaffoInitializer(): ModulePass(ID) { }
   bool runOnModule(llvm::Module &M) override;
   
-  void readGlobalAnnotations(llvm::Module &m, ConvQueueT& res, bool functionAnnotation = false);
-  void readLocalAnnotations(llvm::Function &f, ConvQueueT& res);
-  void readAllLocalAnnotations(llvm::Module &m, ConvQueueT& res);
-  bool parseAnnotation(ConvQueueT& res, llvm::ConstantExpr *annoPtrInst, llvm::Value *instr, bool *isTarget = nullptr);
+  void readGlobalAnnotations(llvm::Module &m);
+  void readLocalAnnotations(llvm::Function &f);
+  void readAllLocalAnnotations(llvm::Module &m);
+  llvm::Optional<ValueInfo> parseAnnotation(llvm::ConstantExpr *annoPtrInst, llvm::Value *instr, bool *isTarget = nullptr);
   void removeNoFloatTy(ConvQueueT& res);
-  void printAnnotatedObj(llvm::Module &m);
   
-  void buildConversionQueueForRootValues(const ConvQueueT& val, ConvQueueT& res);
+  void buildConversionQueueForRootValues(llvm::Function *F, ConvQueueT& res);
   void createInfoOfUser(llvm::Value *used, const ValueInfo& VIUsed, llvm::Value *user, ValueInfo& VIUser);
   std::shared_ptr<mdutils::MDInfo> extractGEPIMetadata(const llvm::Value *user,
 						       const llvm::Value *used,
 						       std::shared_ptr<mdutils::MDInfo> user_mdi,
 						       std::shared_ptr<mdutils::MDInfo> used_mdi);
-  void generateFunctionSpace(ConvQueueT& vals, ConvQueueT& global, llvm::SmallPtrSet<llvm::Function *, 10> &callTrace);
-  llvm::Function *createFunctionAndQueue(llvm::CallSite *call, ConvQueueT& vals, ConvQueueT& global, std::vector<llvm::Value*> &convQueue);
+  void generateFunctionSpace(ConvQueueT& vals);
+  void generateFunctionSpace(ConvQueueT& vals, llvm::SmallPtrSetImpl<llvm::Function *> &callTrace);
+  llvm::Function *createFunctionAndQueue(llvm::CallSite *call);
   void printConversionQueue(ConvQueueT& vals);
   void removeAnnotationCalls(ConvQueueT& vals);
   
   void setMetadataOfValue(llvm::Value *v, ValueInfo& VI);
-  void setFunctionArgsMetadata(llvm::Module &m, ConvQueueT& Q);
+  void setFunctionArgsMetadata(llvm::Module &m);
 
   bool isSpecialFunction(const llvm::Function* f) {
     llvm::StringRef fName = f->getName();
