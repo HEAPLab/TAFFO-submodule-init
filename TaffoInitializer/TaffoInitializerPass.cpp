@@ -542,6 +542,7 @@ Function* TaffoInitializer::createFunctionAndQueue(llvm::CallSite *call, ConvQue
     if (Instruction *inst = dyn_cast<Instruction>(val.first)) {
       if (inst->getFunction()==newF){
         vals.push_back(val);
+        convQueue.push_back(val.first);
         LLVM_DEBUG(dbgs() << "  enqueued " << *inst << " in " << newF->getName() << "\n");
       }
     }
