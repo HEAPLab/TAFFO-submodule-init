@@ -37,10 +37,52 @@ static RegisterPass<TaffoInitializer> X(
 llvm::cl::opt<bool> ManualFunctionCloning("manualclone",
     llvm::cl::desc("Enables function cloning only for annotated functions"), llvm::cl::init(false));
 
+// TODO Use map to handle different indirect functions
+void removeOpenMPIndirection(llvm::Module &m)
+{
+  LLVM_DEBUG(dbgs() << "Removing indirection OpenMP "  << "\n");
+
+  for (llvm::Function &curFunction : m) {
+    for (auto instructionIt = inst_begin(curFunction); instructionIt != inst_end(curFunction); instructionIt++) {
+      if (auto curCallInstruction = dyn_cast<CallInst>(&(*instructionIt))) {
+        auto *curCall = new CallSite(curCallInstruction);
+        llvm::Function* indirectFunction = curCall->getCalledFunction();
+
+        if (indirectFunction->getName() == "__kmpc_fork_call") {
+          auto microTaskOperand = llvm::dyn_cast<llvm::ConstantExpr>(curCall->arg_begin() + 2)->getOperand(0);
+          auto microTaskFunction = llvm::dyn_cast<llvm::Function>(microTaskOperand);
+
+          std::vector<Value *> convArgs;
+
+          // Create null pointer to patch the internal OpenMP arguments
+          Value *nullPointer = ConstantPointerNull::get(PointerType::get(Type::getInt32Ty(curFunction.getContext()), 0));
+          convArgs.push_back(nullPointer);
+          convArgs.push_back(nullPointer);
+
+          for (auto argIt = curCall->arg_begin() + 3; argIt < curCall->arg_end(); argIt += 1)
+            convArgs.push_back(*argIt);
+
+          CallInst *newCallInstruction = CallInst::Create(microTaskFunction, convArgs);
+          newCallInstruction->setCallingConv(curCall->getCallingConv());
+          newCallInstruction->insertBefore(curCall->getInstruction());
+          newCallInstruction->setDebugLoc(curCallInstruction->getDebugLoc());
+          // TODO Remove the curCallInstruction from the function (how?)
+          
+          MDNode *indirectFunctionRef = MDNode::get(curCallInstruction->getContext(), ValueAsMetadata::get(indirectFunction));
+          newCallInstruction->setMetadata(OPENMP_INDIRECT_METADATA, indirectFunctionRef);
+
+          LLVM_DEBUG(dbgs() << "Newly created instruction: " << *newCallInstruction << "\n");
+        }
+      }
+    }
+  }
+}
 
 bool TaffoInitializer::runOnModule(Module &m)
 {
   DEBUG_WITH_TYPE(DEBUG_ANNOTATION, printAnnotatedObj(m));
+
+  removeOpenMPindirection(m);
 
   ConvQueueT local;
   ConvQueueT global;
