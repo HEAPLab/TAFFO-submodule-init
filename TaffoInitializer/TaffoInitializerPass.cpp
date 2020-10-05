@@ -41,7 +41,7 @@ llvm::cl::opt<bool> ManualFunctionCloning("manualclone",
 void removeOpenMPIndirection(llvm::Module &m)
 {
   LLVM_DEBUG(dbgs() << "Removing indirection OpenMP "  << "\n");
-
+  std::vector<Instruction *> toDelete;
   for (llvm::Function &curFunction : m) {
     for (auto instructionIt = inst_begin(curFunction); instructionIt != inst_end(curFunction); instructionIt++) {
       if (auto curCallInstruction = dyn_cast<CallInst>(&(*instructionIt))) {
@@ -66,15 +66,19 @@ void removeOpenMPIndirection(llvm::Module &m)
           newCallInstruction->setCallingConv(curCall->getCallingConv());
           newCallInstruction->insertBefore(curCall->getInstruction());
           newCallInstruction->setDebugLoc(curCallInstruction->getDebugLoc());
-          // TODO Remove the curCallInstruction from the function (how?)
-          
+
           MDNode *indirectFunctionRef = MDNode::get(curCallInstruction->getContext(), ValueAsMetadata::get(indirectFunction));
           newCallInstruction->setMetadata(OPENMP_INDIRECT_METADATA, indirectFunctionRef);
+
+          toDelete.push_back(curCallInstruction);
 
           LLVM_DEBUG(dbgs() << "Newly created instruction: " << *newCallInstruction << "\n");
         }
       }
     }
+  }
+  for (auto inst: toDelete) {
+    inst->eraseFromParent();
   }
 }
 
@@ -82,7 +86,7 @@ bool TaffoInitializer::runOnModule(Module &m)
 {
   DEBUG_WITH_TYPE(DEBUG_ANNOTATION, printAnnotatedObj(m));
 
-  removeOpenMPindirection(m);
+  removeOpenMPIndirection(m);
 
   ConvQueueT local;
   ConvQueueT global;
