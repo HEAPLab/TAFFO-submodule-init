@@ -16,6 +16,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include <llvm/Transforms/Utils/ValueMapper.h>
 #include <llvm/Transforms/Utils/Cloning.h>
+#include <llvm/IR/IRBuilder.h>
 #include "TaffoInitializerPass.h"
 #include "TypeUtils.h"
 #include "Metadata.h"
@@ -49,23 +50,56 @@ void removeOpenMPIndirection(llvm::Module &m)
         llvm::Function* indirectFunction = curCall->getCalledFunction();
 
         if (indirectFunction->getName() == "__kmpc_fork_call") {
+          std::vector<Type *> paramsFunc;
+
+          auto functionType = indirectFunction->getFunctionType();
+
+          auto params = functionType->params();
+          for (auto i = 0; i < 3; i++) {
+            paramsFunc.push_back(params[i]);
+          }
+          for (auto i = 3; i < curCall->getNumArgOperands(); i++)
+            paramsFunc.push_back(curCall->getArgOperand(i)->getType());
+
+          auto newFunctionType = FunctionType::get(functionType->getReturnType(), paramsFunc, false);
+          Function *newF = Function::Create(
+                  newFunctionType, indirectFunction->getLinkage(),
+                  indirectFunction->getName() + "_trampoline", indirectFunction->getParent());
+
+          BasicBlock* block = BasicBlock::Create(m.getContext(), "main", newF);
+
           auto microTaskOperand = llvm::dyn_cast<llvm::ConstantExpr>(curCall->arg_begin() + 2)->getOperand(0);
           auto microTaskFunction = llvm::dyn_cast<llvm::Function>(microTaskOperand);
 
           std::vector<Value *> convArgs;
+          std::vector<Value *> trampolineArgs;
 
-          // Create null pointer to patch the internal OpenMP arguments
-          Value *nullPointer = ConstantPointerNull::get(PointerType::get(Type::getInt32Ty(curFunction.getContext()), 0));
+          // Create null pointer to patch the internal OpenMP argument
+          Value *nullPointer = ConstantPointerNull::get(PointerType::get(Type::getInt32Ty(newF->getContext()), 0));
           convArgs.push_back(nullPointer);
           convArgs.push_back(nullPointer);
 
-          for (auto argIt = curCall->arg_begin() + 3; argIt < curCall->arg_end(); argIt += 1)
+          for (auto argIt = curCall->arg_begin(); argIt < curCall->arg_begin() + 3; argIt += 1) {
+            trampolineArgs.push_back(*argIt);
+          }
+          for (auto argIt = curCall->arg_begin() +3; argIt < curCall->arg_end(); argIt += 1) {
             convArgs.push_back(*argIt);
+            trampolineArgs.push_back(*argIt);
+          }
 
           CallInst *newCallInstruction = CallInst::Create(microTaskFunction, convArgs);
-          newCallInstruction->setCallingConv(curCall->getCallingConv());
-          newCallInstruction->insertBefore(curCall->getInstruction());
+          newCallInstruction->insertBefore(curCallInstruction);
           newCallInstruction->setDebugLoc(curCallInstruction->getDebugLoc());
+
+          // Keep ref to the indirect function, preventing globaldce pass to destroy it
+          auto magicBitCast = new llvm::BitCastInst(indirectFunction, indirectFunction->getType(), "", block);
+
+          ReturnInst::Create(m.getContext(), nullptr, block);
+
+          CallInst *trampolineCallInstruction = CallInst::Create(newF, trampolineArgs);
+          trampolineCallInstruction->setCallingConv(curCallInstruction->getCallingConv());
+          trampolineCallInstruction->insertBefore(curCallInstruction);
+          trampolineCallInstruction->setDebugLoc(curCallInstruction->getDebugLoc());
 
           MDNode *indirectFunctionRef = MDNode::get(curCallInstruction->getContext(), ValueAsMetadata::get(indirectFunction));
           newCallInstruction->setMetadata(OPENMP_INDIRECT_METADATA, indirectFunctionRef);
@@ -555,7 +589,14 @@ Function* TaffoInitializer::createFunctionAndQueue(llvm::CallSite *call, ConvQue
   LLVM_DEBUG(dbgs() << "  callsite instr " << *call->getInstruction() << " [" << call->getInstruction()->getFunction()->getName() << "]\n");
   for (int i=0; oldArgumentI != oldF->arg_end() ; oldArgumentI++, newArgumentI++, i++) {
     Value *callOperand = call->getInstruction()->getOperand(i);
-    Value *allocaOfArgument = newArgumentI->user_begin()->getOperand(1);
+
+    auto user_begin = newArgumentI->user_begin();
+    if (user_begin == newArgumentI->user_end()) {
+      LLVM_DEBUG(dbgs() << "  Arg nr. " << i << " skipped, callOperand has no valueInfo\n");
+      continue;
+    }
+
+    Value *allocaOfArgument = user_begin->getOperand(1);
     if (!isa<AllocaInst>(allocaOfArgument))
       allocaOfArgument = nullptr;
     
