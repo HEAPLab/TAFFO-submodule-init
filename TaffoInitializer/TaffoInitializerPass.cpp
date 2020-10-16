@@ -55,9 +55,10 @@ void removeOpenMPIndirection(llvm::Module &m)
           auto functionType = indirectFunction->getFunctionType();
 
           auto params = functionType->params();
-          for (auto i = 0; i < 3; i++) {
+          for (auto i = 0; i < 2; i++) {
             paramsFunc.push_back(params[i]);
           }
+          //The third argument (outlined function) may not be inserted as an argument as it's completely managed from the newF body
           for (auto i = 3; i < curCall->getNumArgOperands(); i++)
             paramsFunc.push_back(curCall->getArgOperand(i)->getType());
 
@@ -65,6 +66,10 @@ void removeOpenMPIndirection(llvm::Module &m)
           Function *newF = Function::Create(
                   newFunctionType, indirectFunction->getLinkage(),
                   indirectFunction->getName() + "_trampoline", indirectFunction->getParent());
+
+          for (auto i = 3; i < curCall->getNumArgOperands(); i++){
+            newF->getArg(i-1)->setName(curCall->getArgOperand(i)->getName());
+          }
 
           BasicBlock* block = BasicBlock::Create(m.getContext(), "main", newF);
 
@@ -79,7 +84,7 @@ void removeOpenMPIndirection(llvm::Module &m)
           convArgs.push_back(nullPointer);
           convArgs.push_back(nullPointer);
 
-          for (auto argIt = curCall->arg_begin(); argIt < curCall->arg_begin() + 3; argIt += 1) {
+          for (auto argIt = curCall->arg_begin(); argIt < curCall->arg_begin() + 2; argIt += 1) {
             trampolineArgs.push_back(*argIt);
           }
           for (auto argIt = curCall->arg_begin() +3; argIt < curCall->arg_end(); argIt += 1) {
@@ -87,14 +92,21 @@ void removeOpenMPIndirection(llvm::Module &m)
             trampolineArgs.push_back(*argIt);
           }
 
-          CallInst *newCallInstruction = CallInst::Create(microTaskFunction, convArgs);
-          newCallInstruction->insertBefore(curCallInstruction);
-          newCallInstruction->setDebugLoc(curCallInstruction->getDebugLoc());
-
           // Keep ref to the indirect function, preventing globaldce pass to destroy it
           auto magicBitCast = new llvm::BitCastInst(indirectFunction, indirectFunction->getType(), "", block);
-
           ReturnInst::Create(m.getContext(), nullptr, block);
+
+          std::vector<Value *> outlinedArgumentsInsideTrampoline;
+
+          outlinedArgumentsInsideTrampoline.push_back(nullPointer);
+          outlinedArgumentsInsideTrampoline.push_back(nullPointer);
+
+          for (auto argIt = newF->arg_begin() + 2; argIt < newF->arg_end(); argIt ++) {
+            outlinedArgumentsInsideTrampoline.push_back(argIt);
+          }
+
+          CallInst *outlinedCall = CallInst::Create(microTaskFunction, outlinedArgumentsInsideTrampoline);
+          outlinedCall->insertAfter(magicBitCast);
 
           CallInst *trampolineCallInstruction = CallInst::Create(newF, trampolineArgs);
           trampolineCallInstruction->setCallingConv(curCallInstruction->getCallingConv());
@@ -102,11 +114,11 @@ void removeOpenMPIndirection(llvm::Module &m)
           trampolineCallInstruction->setDebugLoc(curCallInstruction->getDebugLoc());
 
           MDNode *indirectFunctionRef = MDNode::get(curCallInstruction->getContext(), ValueAsMetadata::get(indirectFunction));
-          newCallInstruction->setMetadata(OPENMP_INDIRECT_METADATA, indirectFunctionRef);
+          trampolineCallInstruction->setMetadata(OPENMP_INDIRECT_METADATA, indirectFunctionRef);
 
           toDelete.push_back(curCallInstruction);
 
-          LLVM_DEBUG(dbgs() << "Newly created instruction: " << *newCallInstruction << "\n");
+          LLVM_DEBUG(dbgs() << "Newly created instruction: " << *trampolineCallInstruction << "\n");
         }
       }
     }
