@@ -19,6 +19,7 @@
 #include "TaffoInitializerPass.h"
 #include "TypeUtils.h"
 #include "Metadata.h"
+#include "llvm/IR/DerivedTypes.h"
 
 
 using namespace llvm;
@@ -368,7 +369,7 @@ TaffoInitializer::extractGEPIMetadata(const llvm::Value *user,
   for (auto idx_it = gepi->idx_begin() + 1; // skip first index
        idx_it != gepi->idx_end(); ++idx_it) {
     LLVM_DEBUG(dbgs() << "[extractGEPIMetadata] source_element_type=" << *source_element_type << "\n");
-    if (isa<SequentialType>(source_element_type))
+    if (isa<llvm::ArrayType>(source_element_type) || isa<llvm::VectorType>(source_element_type))
       continue;
 
     if (const llvm::ConstantInt* int_i = dyn_cast<llvm::ConstantInt>(*idx_it)) {

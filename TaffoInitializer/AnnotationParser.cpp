@@ -1,5 +1,5 @@
 #include <cctype>
-#include <climits>
+#include <limits.h>
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Debug.h"
 #include "AnnotationParser.h"
@@ -22,7 +22,7 @@ void AnnotationParser::reset()
 bool AnnotationParser::parseAnnotationString(StringRef annstr)
 {
   reset();
-  sstream = std::istringstream(annstr.substr(0, annstr.size()));
+  sstream = std::istringstream((annstr.substr(0, annstr.size())).str());
   
   bool res;
   if (annstr.find('(') == StringRef::npos)
@@ -57,7 +57,7 @@ bool AnnotationParser::parseOldSyntax()
       backtracking = false;
     } else {
       backtracking = true;
-      backtrackingDepth = UINT_MAX;
+      backtrackingDepth =  std::numeric_limits<unsigned int>::max();
     }
     sstream >> head;
   }
@@ -136,7 +136,7 @@ bool AnnotationParser::parseNewSyntax()
         if (!expect(")")) return false;
       } else {
         backtracking = true;
-        backtrackingDepth = UINT_MAX;
+        backtrackingDepth = std::numeric_limits<unsigned int>::max();
       }
       
     } else if (peek("struct")) {
