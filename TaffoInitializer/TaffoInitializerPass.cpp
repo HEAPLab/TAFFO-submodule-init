@@ -173,9 +173,6 @@ void TaffoInitializer::buildConversionQueueForRootValues(
              << "Initial ");
 
   queue.insert(queue.begin(), val.begin(), val.end());
-  for (auto i: queue) {
-    i->second.isRoot = true;
-  }
   LLVM_DEBUG(printConversionQueue(queue));
 
   SmallPtrSet<Value *, 8U> visited;
@@ -275,7 +272,6 @@ void TaffoInitializer::buildConversionQueueForRootValues(
           #endif
           continue;
         }
-        next->second.isRoot = false;
 
         bool alreadyIn = false;
         ValueInfo VIU;
@@ -288,7 +284,6 @@ void TaffoInitializer::buildConversionQueueForRootValues(
             UI = queue.erase(UI);
         }
         if (!alreadyIn) {
-          VIU.isRoot = true;
           #ifdef LOG_BACKTRACK
           dbgs() << "  enqueued\n";
           #endif
@@ -305,23 +300,6 @@ void TaffoInitializer::buildConversionQueueForRootValues(
     }
   }
 
-  for (auto VVI: queue) {
-    if (VVI->second.isRoot) {
-      VVI->second.roots = {VVI->first};
-    }
-
-    SmallPtrSet<Value*, 5> newroots = VVI->second.roots;
-    for (Value *u: VVI->first->users()) {
-      auto UVI = queue.find(u);
-      if (UVI == queue.end())
-        continue;
-
-      auto oldroots = UVI->second.roots;
-      SmallPtrSet<Value*, 5> merge(newroots);
-      merge.insert(oldroots.begin(), oldroots.end());
-      UVI->second.roots = merge;
-    }
-  }
   LLVM_DEBUG(dbgs() << "***** end " << __PRETTY_FUNCTION__ << "\n");
 }
 
@@ -576,7 +554,7 @@ Function* TaffoInitializer::createFunctionAndQueue(llvm::CallSite *call, ConvQue
       roots.push_back(allocaOfArgument, allocaVi);
     }
     
-    LLVM_DEBUG(dbgs() << "  Arg nr. " << i << " processed, isRoot = " << argumentVi.isRoot << "\n");
+    LLVM_DEBUG(dbgs() << "  Arg nr. " << i << " processed\n");
     LLVM_DEBUG(dbgs() << "    md = " << argumentVi.metadata->toString() << "\n");
     if (allocaOfArgument)
       LLVM_DEBUG(dbgs() << "    enqueued alloca of argument " << *allocaOfArgument << "\n");
@@ -610,12 +588,6 @@ void TaffoInitializer::printConversionQueue(ConvQueueT& vals)
     for (auto val: vals) {
       dbgs() << "bt=" << val.second.backtrackingDepthLeft << " ";
       dbgs() << "md=" << val.second.metadata->toString() << " ";
-      dbgs() << "[";
-      for (Value *rootv: val.second.roots) {
-        rootv->print(dbgs());
-        dbgs() << ' ';
-      }
-      dbgs() << "] " << *val.first << "\n";
     }
     dbgs() << "\n\n";
   } else {

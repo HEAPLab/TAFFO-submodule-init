@@ -32,10 +32,8 @@ namespace taffo {
 
 struct ValueInfo {
   unsigned int backtrackingDepthLeft = 0;
-  bool isRoot;
-  llvm::SmallPtrSet<llvm::Value*, 5> roots;
   unsigned int fixpTypeRootDistance = UINT_MAX;
-  
+
   std::shared_ptr<mdutils::MDInfo> metadata;
   llvm::Optional<std::string> target;
 };
