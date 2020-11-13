@@ -3,6 +3,15 @@
 int foo1(int, int);
 int foo3(int, int);
 
+typedef struct {
+   float r;
+   float g;
+   float b;
+   #pragma taffo scalar b
+   int cluster;
+   float distance;
+} RgbPixel;
+
 
 
 
@@ -12,11 +21,14 @@ int main() {
 	#pragma taffo target a "123" 
 	#pragma taffo backtracking a "prova" 
 	int b, c1, c2;
+	RgbPixel pixel;
+	#pragma taffo errtarget a "taffo"
+	#pragma taffo scalar a
+
 	a = 7;
 	b = 5;
 	int d = a;
 	c1 = foo1(a, b);
-	#pragma taffo target foo3 "ciao"
 	c2 = foo3(a, b);
 	printf("C1 is: %d\n", c1);
 	printf("C2 is: %d\n", c2);
