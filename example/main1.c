@@ -16,7 +16,7 @@ typedef struct {
 
 int main() {
 	
-	int a __attribute((annotate("scalar(disabled range(-3000, 3000))")));
+	int a;
 	#pragma taffo target a "123" 
 	#pragma taffo backtracking a "prova" 
 	int b, c1, c2;

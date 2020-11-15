@@ -41,21 +41,22 @@ using namespace clang;
 
 namespace {
 
-static bool EnableAnnotate = false;
+struct PragmaTaffoInfo{
+    Token PragmaName;
+    llvm::ArrayRef<Token> Toks;
+  };
+
 static bool HandledDecl = false;
-static SmallVector<std::string,32>annotations;
-static std::string VarName;
 
 class TaffoFunctionsConsumer : public ASTConsumer {
 public:
   bool HandleTopLevelDecl(DeclGroupRef DG) override {
     HandledDecl = true;
-    if (!EnableAnnotate)
-      return true;
+
     for (auto D : DG)
       if (FunctionDecl *FD = dyn_cast<FunctionDecl>(D))
         FD->addAttr(AnnotateAttr::CreateImplicit(FD->getASTContext(),
-                                                 VarName));
+                                                 "here it goes the annotation\n"));
     return true;
   }
 };
@@ -87,58 +88,27 @@ public:
   void HandlePragma(Preprocessor &PP, PragmaIntroducer Introducer,
                     Token &PragmaTok) {
     Token PragmaName = Tok;
-  SmallVector<Token, 1> TokenList;
-  PP.Lex(Tok);
-  if (Tok.isNot(tok::identifier)) {
-    printf("Error, a Taffo pragma must contain at least an option argument and a variable identifier\n");
-    return;
-  }
-  Token Option = Tok;
-  IdentifierInfo *OptionInfo = Tok.getIdentifierInfo();
-    bool OptionValid = llvm::StringSwitch<bool>(OptionInfo->getName())
-                           .Case("target", true)
-                           .Case("backtracking", true)
-                           .Case("errtarget", true)
-                           .Case("scalar", true)
-                           .Case("error", true)
-                           .Case("disabled",true)
-                           .Case("final",true)
-                           .Default(false);
-
-  if (!OptionValid) {
-    printf("Error, option not recognized for pragma taffo\n");
-    return;
-  }
-  PP.Lex(Tok);
-
-  auto *Info = new (PP.getPreprocessorAllocator()) PragmaTaffoInfo;
-  if (!ParseTaffoValue(PP, Tok, PragmaName, Option, *Info))
-    return;
+    SmallVector<Token, 1> TokenList;
+    PP.Lex(Tok);
+    if (Tok.isNot(tok::identifier)) {
+      printf("Error, a Taffo pragma must contain at least an option argument and a variable identifier\n");
+     return;
+    }
+    auto *Info = new (PP.getPreprocessorAllocator()) PragmaTaffoInfo;
+    if (!ParseTaffoValue(PP, Tok, PragmaName, *Info))
+     return;
 
 
-  Token TaffoTok;
-  TaffoTok.startToken();
-  TaffoTok.setKind(tok::annot_pragma_taffo);
-  TaffoTok.setLocation(Info->PragmaName.getLocation());
-  TaffoTok.setAnnotationEndLoc(Info->PragmaName.getLocation());
-  TaffoTok.setAnnotationValue(static_cast<void *>(Info));
-  TokenList.push_back(TaffoTok);
   if (Tok.isNot(tok::eod)) {
     printf("Error, extra tokens at the end of pragma taffo\n");
     PP.Diag(Tok.getLocation(), diag::warn_pragma_extra_tokens_at_eol)
-        << "quality pragma";
+        << "taffo pragma";
     return;
   }
 
+}
 
-  
-  auto TokenArray = std::make_unique<Token[]>(TokenList.size());
-  std::copy(TokenList.begin(), TokenList.end(), TokenArray.get());
-  PP.EnterTokenStream(std::move(TokenArray), TokenList.size(),
-                      /*DisableMacroExpansion=*/false, /*IsReinject=*/false);
-  }
-
-  static bool ParseTaffoValue(Preprocessor &PP, Token &Tok,Token PragmaName,  Token Option, 
+  static bool ParseTaffoValue(Preprocessor &PP, Token &Tok,Token PragmaName,  
                     PragmaTaffoInfo &Info) {
     SmallVector<Token, 1> ValueList;
     while (Tok.isNot(tok::eod)) {
@@ -162,7 +132,5 @@ public:
 
 
 
-static FrontendPluginRegistry::Add<TaffoFunctionsAction> X("annotate-fns", "annotate functions");
-
-
-static PragmaHandlerRegistry::Add<TaffoPragmaHandler> Y("taffo_pragma","taffo pragma descption description");
+static FrontendPluginRegistry::Add<TaffoFunctionsAction> X("taffo-plugin", "taffo plugin functions");
+static PragmaHandlerRegistry::Add<TaffoPragmaHandler> Y("taffo","taffo pragma description");
