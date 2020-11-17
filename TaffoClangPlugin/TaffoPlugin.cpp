@@ -43,13 +43,21 @@ namespace {
 
 struct PragmaTaffoInfo{
     Token PragmaName;
-    llvm::ArrayRef<Token> Toks;
+    llvm::ArrayRef<std::string> annotation;
   };
 
-static bool HandledDecl = false;
 
-class TaffoFunctionsConsumer : public ASTConsumer {
+
+class TaffoClassConsumer : public ASTConsumer {
 public:
+  explicit TaffoClassConsumer(ASTContext *Context)
+    : Visitor(Context) {}
+  virtual void HandleTranslationUnit(clang::ASTContext &Context) {
+    // Traversing the translation unit decl via a RecursiveASTVisitor
+    // will visit all nodes in the AST.
+    Visitor.TraverseDecl(Context.getTranslationUnitDecl());
+  }
+
   bool HandleTopLevelDecl(DeclGroupRef DG) override {
     HandledDecl = true;
 
@@ -59,13 +67,31 @@ public:
                                                  "here it goes the annotation\n"));
     return true;
   }
+private:
+  // A RecursiveASTVisitor implementation.
+  TaffoClassVisitor Visitor;
+  
 };
 
-class TaffoFunctionsAction : public PluginASTAction {
+class TaffoClassVisitor
+  : public RecursiveASTVisitor<TaffoClassVisitor> {
+public:
+  bool VisitVarDecl(VarDecl *Declaration) {
+    // For debugging, dumping the AST nodes will show which nodes are already
+    // being visited.
+    Declaration->dump();
+
+    // The return value indicates whether we want the visitation to proceed.
+    // Return false to stop the traversal of the AST.
+    return true;
+  }
+};
+
+class TaffoClassAction : public PluginASTAction {
 public:
   std::unique_ptr<ASTConsumer> CreateASTConsumer(CompilerInstance &CI,
                                                  llvm::StringRef) override {
-    return std::make_unique<TaffoFunctionsConsumer>();
+    return std::make_unique<TaffoClassConsumer>();
   }
 
   bool ParseArgs(const CompilerInstance &CI,
@@ -73,6 +99,7 @@ public:
     return true;
   }
 
+  //to remove??
   PluginASTAction::ActionType getActionType() override {
     return AddBeforeMainAction;
   }
@@ -100,7 +127,7 @@ public:
 
 
   if (Tok.isNot(tok::eod)) {
-    printf("Error, extra tokens at the end of pragma taffo\n");
+    printf("Error,  unexpected extra tokens at the end of pragma taffo\n");
     PP.Diag(Tok.getLocation(), diag::warn_pragma_extra_tokens_at_eol)
         << "taffo pragma";
     return;
@@ -110,18 +137,14 @@ public:
 
   static bool ParseTaffoValue(Preprocessor &PP, Token &Tok,Token PragmaName,  
                     PragmaTaffoInfo &Info) {
-    SmallVector<Token, 1> ValueList;
+    SmallVector<std::string, 1> ValueList;
     while (Tok.isNot(tok::eod)) {
-      ValueList.push_back(Tok);
+      IdentifierInfo *OptionInfo = Tok.getIdentifierInfo();
+      ValueList.push_back(OptionInfo -> getName());
       PP.Lex(Tok);
     }
-    Token EOFTok;
-    EOFTok.startToken();
-    EOFTok.setKind(tok::eof);
-    EOFTok.setLocation(Tok.getLocation());
-    ValueList.push_back(EOFTok); // Terminates expression for parsing.
-    Info.Toks = llvm::makeArrayRef(ValueList).copy(PP.getPreprocessorAllocator());
-    Info.Option = Option;
+    
+    Info.Toks = llvm::makeArrayRef(ValueList);
     Info.PragmaName = PragmaName;
     return true;
   } 
@@ -132,5 +155,5 @@ public:
 
 
 
-static FrontendPluginRegistry::Add<TaffoFunctionsAction> X("taffo-plugin", "taffo plugin functions");
+static FrontendPluginRegistry::Add<TaffoClassAction> X("taffo-plugin", "taffo plugin functions");
 static PragmaHandlerRegistry::Add<TaffoPragmaHandler> Y("taffo","taffo pragma description");
