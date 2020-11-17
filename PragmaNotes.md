@@ -26,8 +26,12 @@ Here a non complete list of modified files(some headers files may be missing):
  - Varname = the identifier of the variable to be annotated
  - OptionArg = a parameter of the specified option. Its semantics may vary depending on the option. A syntx valid string here may not have a meaning with the corresponding option, thus leading to a non valid pragma statement.
 
+## Clang plugin ideas
+ - keep the same syntax as the current annotations
+ - parse them and add as attributes to varDecl AST nodes, to avoid modifying the current Taffo Init implementation 
 
 ## To do
+ - write a clang plugin for taffo pragmas to use instead of a custom version of clang
+ - write a syntax for Fortran taffo pragmas which cannot be transformed into attributes
  - parse them correctly in taffo init module.
- - extend clang to support all the remaining taffo annotations.
- - implement the same pragmas in flang.
+ - implement pragma handling in taffo.
