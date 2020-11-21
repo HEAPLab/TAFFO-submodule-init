@@ -37,20 +37,59 @@
 #include "clang/AST/Attr.h"
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Lex/LexDiagnostic.h"
+#include "clang/AST/RecursiveASTVisitor.h"
+#include "clang/Frontend/CompilerInstance.h"
+#include "clang/Frontend/FrontendAction.h"
+#include "clang/Tooling/Tooling.h"
+#include <iostream>
+
 using namespace clang;
+
 
 namespace {
 
 struct PragmaTaffoInfo{
     Token PragmaName;
-    llvm::ArrayRef<std::string> annotation;
+    std::string varName;
+    llvm::ArrayRef<std::string> Toks;
   };
 
 
+static SmallVector<PragmaTaffoInfo, 32> InfoList;
 
-class TaffoClassConsumer : public ASTConsumer {
+
+class TaffoPragmaVisitor
+  : public RecursiveASTVisitor<TaffoPragmaVisitor> {
 public:
-  explicit TaffoClassConsumer(ASTContext *Context)
+  explicit TaffoPragmaVisitor(ASTContext *Context)
+    : Context(Context) {}
+
+
+  bool VisitVarDecl(VarDecl *Declaration) {
+    // For debugging, dumping the AST nodes will show which nodes are already
+    // being visited.
+    Declaration->dump();
+    std::cout << "Identifier " << Declaration->getQualifiedNameAsString() << "\n";
+    for(PragmaTaffoInfo info : InfoList){
+      if(info.varName.compare(Declaration->getQualifiedNameAsString())==0){
+        std::cout << "Found correspondance on var " << info.varName << "\n";
+        Declaration->addAttr(AnnotateAttr::CreateImplicit(Declaration->getASTContext(),
+                                                 info.Toks));
+      }
+    }
+
+    // The return value indicates whether we want the visitation to proceed.
+    // Return false to stop the traversal of the AST.
+    return true;
+  }
+  private:
+    ASTContext *Context;
+};
+
+
+class TaffoPragmaConsumer : public ASTConsumer {
+public:
+  explicit TaffoPragmaConsumer(ASTContext *Context)
     : Visitor(Context) {}
   virtual void HandleTranslationUnit(clang::ASTContext &Context) {
     // Traversing the translation unit decl via a RecursiveASTVisitor
@@ -58,40 +97,19 @@ public:
     Visitor.TraverseDecl(Context.getTranslationUnitDecl());
   }
 
-  bool HandleTopLevelDecl(DeclGroupRef DG) override {
-    HandledDecl = true;
 
-    for (auto D : DG)
-      if (FunctionDecl *FD = dyn_cast<FunctionDecl>(D))
-        FD->addAttr(AnnotateAttr::CreateImplicit(FD->getASTContext(),
-                                                 "here it goes the annotation\n"));
-    return true;
-  }
 private:
   // A RecursiveASTVisitor implementation.
-  TaffoClassVisitor Visitor;
-  
+  TaffoPragmaVisitor Visitor;
+
 };
 
-class TaffoClassVisitor
-  : public RecursiveASTVisitor<TaffoClassVisitor> {
-public:
-  bool VisitVarDecl(VarDecl *Declaration) {
-    // For debugging, dumping the AST nodes will show which nodes are already
-    // being visited.
-    Declaration->dump();
 
-    // The return value indicates whether we want the visitation to proceed.
-    // Return false to stop the traversal of the AST.
-    return true;
-  }
-};
-
-class TaffoClassAction : public PluginASTAction {
+class TaffoPragmaAction : public PluginASTAction {
 public:
   std::unique_ptr<ASTConsumer> CreateASTConsumer(CompilerInstance &CI,
                                                  llvm::StringRef) override {
-    return std::make_unique<TaffoClassConsumer>();
+    return std::unique_ptr<ASTConsumer>(new TaffoPragmaConsumer(&CI.getASTContext()));
   }
 
   bool ParseArgs(const CompilerInstance &CI,
@@ -109,21 +127,23 @@ public:
 
 // preprocessing phase
 
-class ExamplePragmaHandler : public PragmaHandler {
+class TaffoPragmaHandler : public PragmaHandler {
 public:
   TaffoPragmaHandler() : PragmaHandler("taffo") { }
   void HandlePragma(Preprocessor &PP, PragmaIntroducer Introducer,
                     Token &PragmaTok) {
+    Token Tok;
     Token PragmaName = Tok;
     SmallVector<Token, 1> TokenList;
+    
     PP.Lex(Tok);
     if (Tok.isNot(tok::identifier)) {
       printf("Error, a Taffo pragma must contain at least an option argument and a variable identifier\n");
      return;
     }
-    auto *Info = new (PP.getPreprocessorAllocator()) PragmaTaffoInfo;
-    if (!ParseTaffoValue(PP, Tok, PragmaName, *Info))
+    if (!ParseTaffoValue(PP, Tok, PragmaName))
      return;
+
 
 
   if (Tok.isNot(tok::eod)) {
@@ -135,25 +155,29 @@ public:
 
 }
 
-  static bool ParseTaffoValue(Preprocessor &PP, Token &Tok,Token PragmaName,  
-                    PragmaTaffoInfo &Info) {
+  static bool ParseTaffoValue(Preprocessor &PP, Token &Tok,Token PragmaName) {
     SmallVector<std::string, 1> ValueList;
+    PragmaTaffoInfo Info;
+    IdentifierInfo *VarInfo = Tok.getIdentifierInfo();
+    Info.varName = VarInfo->getName();
+    PP.Lex(Tok);
+
     while (Tok.isNot(tok::eod)) {
       IdentifierInfo *OptionInfo = Tok.getIdentifierInfo();
       ValueList.push_back(OptionInfo -> getName());
+      ValueList.push_back(" ");
       PP.Lex(Tok);
     }
     
     Info.Toks = llvm::makeArrayRef(ValueList);
     Info.PragmaName = PragmaName;
+    InfoList.push_back(Info);
     return true;
   } 
 };
 
+}
 
 
-
-
-
-static FrontendPluginRegistry::Add<TaffoClassAction> X("taffo-plugin", "taffo plugin functions");
+static FrontendPluginRegistry::Add<TaffoPragmaAction> X("taffo-plugin", "taffo plugin functions");
 static PragmaHandlerRegistry::Add<TaffoPragmaHandler> Y("taffo","taffo pragma description");
