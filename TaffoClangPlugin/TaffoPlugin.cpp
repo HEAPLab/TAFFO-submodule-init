@@ -51,7 +51,8 @@ namespace {
 struct PragmaTaffoInfo{
     Token PragmaName;
     std::string varName;
-    llvm::ArrayRef<std::string> Toks;
+    std::string funName;
+    std::string annotation;
   };
 
 
@@ -69,12 +70,22 @@ public:
     // For debugging, dumping the AST nodes will show which nodes are already
     // being visited.
     Declaration->dump();
-    std::cout << "Identifier " << Declaration->getQualifiedNameAsString() << "\n";
+    //getting the name o the variable
+    std::string Vname = Declaration->getQualifiedNameAsString();
+    std::cout << "Identifier " << Vname << "\n";
+    //getting the function name, if the variable was declared inside a function
+    std::string Fname ="";
+    auto FD = dyn_cast<FunctionDecl>(Declaration->getDeclContext());
+    if (FD != NULL){
+      Fname = FD->getNameInfo().getAsString();
+      std::cout << "the variable was declared in function " << Fname << "\n";
+    }
+
     for(PragmaTaffoInfo info : InfoList){
-      if(info.varName.compare(Declaration->getQualifiedNameAsString())==0){
+      if(info.varName.compare(Vname)==0 && info.funName.compare(Fname)==0){
         std::cout << "Found correspondance on var " << info.varName << "\n";
         Declaration->addAttr(AnnotateAttr::CreateImplicit(Declaration->getASTContext(),
-                                                 info.Toks));
+                                                 info.annotation));
       }
     }
 
@@ -117,7 +128,6 @@ public:
     return true;
   }
 
-  //to remove??
   PluginASTAction::ActionType getActionType() override {
     return AddBeforeMainAction;
   }
@@ -126,7 +136,6 @@ public:
 
 
 // preprocessing phase
-
 class TaffoPragmaHandler : public PragmaHandler {
 public:
   TaffoPragmaHandler() : PragmaHandler("taffo") { }
@@ -156,20 +165,26 @@ public:
 }
 
   static bool ParseTaffoValue(Preprocessor &PP, Token &Tok,Token PragmaName) {
-    SmallVector<std::string, 1> ValueList;
+    std::string annotation = "";
     PragmaTaffoInfo Info;
+    //parsing VarName
     IdentifierInfo *VarInfo = Tok.getIdentifierInfo();
-    Info.varName = VarInfo->getName();
+    Info.varName = VarInfo->getName().str();
     PP.Lex(Tok);
 
+    //parsing FunName
+    IdentifierInfo *FunInfo = Tok.getIdentifierInfo();
+    Info.funName = FunInfo->getName().str();
+    PP.Lex(Tok);
+
+    //parsing the actual annotation
     while (Tok.isNot(tok::eod)) {
       IdentifierInfo *OptionInfo = Tok.getIdentifierInfo();
-      ValueList.push_back(OptionInfo -> getName());
-      ValueList.push_back(" ");
+      annotation = annotation + " " + OptionInfo->getName().str();
       PP.Lex(Tok);
     }
     
-    Info.Toks = llvm::makeArrayRef(ValueList);
+    Info.annotation = annotation;
     Info.PragmaName = PragmaName;
     InfoList.push_back(Info);
     return true;
