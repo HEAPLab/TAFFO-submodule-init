@@ -40,9 +40,9 @@
 #include "clang/AST/RecursiveASTVisitor.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Frontend/FrontendAction.h"
-#include "clang/Tooling/Tooling.h"
-#include <iostream>
 
+
+#include <iostream>
 using namespace clang;
 
 
@@ -65,14 +65,11 @@ public:
   explicit TaffoPragmaVisitor(ASTContext *Context)
     : Context(Context) {}
 
-
   bool VisitVarDecl(VarDecl *Declaration) {
-    // For debugging, dumping the AST nodes will show which nodes are already
-    // being visited.
+    // For debugging, dumping the AST nodes will show which nodes are being visited
     Declaration->dump();
-    //getting the name o the variable
+    //getting the name of the variable
     std::string Vname = Declaration->getQualifiedNameAsString();
-    std::cout << "Identifier " << Vname << "\n";
     //getting the function name, if the variable was declared inside a function
     std::string Fname ="";
     auto FD = dyn_cast<FunctionDecl>(Declaration->getDeclContext());
@@ -80,14 +77,14 @@ public:
       Fname = FD->getNameInfo().getAsString();
       std::cout << "the variable was declared in function " << Fname << "\n";
     }
-
+    //looking in the list if this variable has been annotated by the user
     for(PragmaTaffoInfo info : InfoList){
-      if(info.varName.compare(Vname)==0 && info.funName.compare(Fname)==0){
-        std::cout << "Found correspondance on var " << info.varName << "\n";
-        Declaration->addAttr(AnnotateAttr::CreateImplicit(Declaration->getASTContext(),
+        if(info.varName.compare(Vname)==0 && info.funName.compare(Fname)==0){
+          Declaration->addAttr(AnnotateAttr::CreateImplicit(Declaration->getASTContext(),
                                                  info.annotation));
+          std::cout << "Added annotation: " << info.annotation << "\n";
+        }
       }
-    }
 
     // The return value indicates whether we want the visitation to proceed.
     // Return false to stop the traversal of the AST.
@@ -98,21 +95,23 @@ public:
 };
 
 
+
+
 class TaffoPragmaConsumer : public ASTConsumer {
 public:
   explicit TaffoPragmaConsumer(ASTContext *Context)
     : Visitor(Context) {}
-  virtual void HandleTranslationUnit(clang::ASTContext &Context) {
-    // Traversing the translation unit decl via a RecursiveASTVisitor
-    // will visit all nodes in the AST.
-    Visitor.TraverseDecl(Context.getTranslationUnitDecl());
+
+  bool HandleTopLevelDecl(DeclGroupRef DG) override { 
+    for (DeclGroupRef::iterator b = DG.begin(),e = DG.end(); b != e; ++b) {
+      Visitor.TraverseDecl(*b);
+    }
+    return true;
   }
-
-
 private:
   // A RecursiveASTVisitor implementation.
   TaffoPragmaVisitor Visitor;
-
+  
 };
 
 
@@ -146,13 +145,8 @@ public:
     SmallVector<Token, 1> TokenList;
     
     PP.Lex(Tok);
-    if (Tok.isNot(tok::identifier)) {
-      printf("Error, a Taffo pragma must contain at least an option argument and a variable identifier\n");
-     return;
-    }
     if (!ParseTaffoValue(PP, Tok, PragmaName))
      return;
-
 
 
   if (Tok.isNot(tok::eod)) {
@@ -165,24 +159,33 @@ public:
 }
 
   static bool ParseTaffoValue(Preprocessor &PP, Token &Tok,Token PragmaName) {
-    std::string annotation = "";
     PragmaTaffoInfo Info;
     //parsing VarName
+    if (Tok.isNot(tok::identifier)) {
+      printf("Error, a Taffo pragma must contain a variable identifier\n");
+      return false;
+    }
     IdentifierInfo *VarInfo = Tok.getIdentifierInfo();
     Info.varName = VarInfo->getName().str();
     PP.Lex(Tok);
 
     //parsing FunName
+    if (Tok.isNot(tok::identifier)) {
+      printf("Error, a Taffo pragma must contain a function identifier\n");
+      return false;
+    }
     IdentifierInfo *FunInfo = Tok.getIdentifierInfo();
     Info.funName = FunInfo->getName().str();
     PP.Lex(Tok);
 
     //parsing the actual annotation
-    while (Tok.isNot(tok::eod)) {
-      IdentifierInfo *OptionInfo = Tok.getIdentifierInfo();
-      annotation = annotation + " " + OptionInfo->getName().str();
-      PP.Lex(Tok);
-    }
+    std::string annotation = "";
+    annotation = Tok.getLiteralData();
+    annotation = annotation.substr(0, annotation.find("\n"));
+    annotation = annotation.substr(1, annotation.size()- 2);
+    std::cout  << "Just parse a Taffo Annotation: " << annotation << "\n";
+    PP.Lex(Tok);
+    
     
     Info.annotation = annotation;
     Info.PragmaName = PragmaName;

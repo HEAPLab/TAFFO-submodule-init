@@ -15,10 +15,13 @@ typedef struct {
 
 
 int main() {
+	#pragma taffo a main "scalar(disabled range(-3000, 3000))"
+	int a;
 
-	int a __attribute((annotate("scalar(disabled range(-3000, 3000))")));
 	int b, c1, c2;
+	#pragma taffo pixel main "scalar(disabled range(-4000, 4000))"
 	RgbPixel pixel;
+
 	a = 7;
 	b = 5;
 	c1 = foo1(a, b);
@@ -27,6 +30,7 @@ int main() {
 	printf("C2 is: %d\n", c2);
 	return 0;
 }
+
 
 int foo1(int c, int b){
 	int a = 1;

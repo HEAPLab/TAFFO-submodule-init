@@ -31,7 +31,7 @@ Here a non complete list of modified files(some headers files may be missing):
  - parse them and add as attributes to varDecl AST nodes, to avoid modifying the current Taffo Init implementation 
 
 ## To do
- - write a clang plugin for taffo pragmas to use instead of a custom version of clang
+ - write a clang plugin for taffo pragmas to use instead of a custom version of clang -> DONE
  - write a syntax for Fortran taffo pragmas which cannot be transformed into attributes
  - parse them correctly in taffo init module.
  - implement pragma handling in taffo.

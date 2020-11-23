@@ -5,11 +5,11 @@ target triple = "x86_64-unknown-linux-gnu"
 
 %struct.RgbPixel = type { float, float, float, i32, float }
 
-@a = dso_local global i32 12, align 4
 @.str = private unnamed_addr constant [36 x i8] c"scalar(disabled range(-3000, 3000))\00", section "llvm.metadata"
 @.str.1 = private unnamed_addr constant [7 x i8] c"main.c\00", section "llvm.metadata"
-@.str.2 = private unnamed_addr constant [11 x i8] c"C1 is: %d\0A\00", align 1
-@.str.3 = private unnamed_addr constant [11 x i8] c"C2 is: %d\0A\00", align 1
+@.str.2 = private unnamed_addr constant [36 x i8] c"scalar(disabled range(-4000, 4000))\00", section "llvm.metadata"
+@.str.3 = private unnamed_addr constant [11 x i8] c"C1 is: %d\0A\00", align 1
+@.str.4 = private unnamed_addr constant [11 x i8] c"C2 is: %d\0A\00", align 1
 
 ; Function Attrs: noinline nounwind optnone uwtable
 define dso_local i32 @main() #0 {
@@ -20,26 +20,25 @@ entry:
   %c1 = alloca i32, align 4
   %c2 = alloca i32, align 4
   %pixel = alloca %struct.RgbPixel, align 4
-  %d = alloca i32, align 4
   store i32 0, i32* %retval, align 4
   %a1 = bitcast i32* %a to i8*
   call void @llvm.var.annotation(i8* %a1, i8* getelementptr inbounds ([36 x i8], [36 x i8]* @.str, i32 0, i32 0), i8* getelementptr inbounds ([7 x i8], [7 x i8]* @.str.1, i32 0, i32 0), i32 19)
+  %pixel2 = bitcast %struct.RgbPixel* %pixel to i8*
+  call void @llvm.var.annotation(i8* %pixel2, i8* getelementptr inbounds ([36 x i8], [36 x i8]* @.str.2, i32 0, i32 0), i8* getelementptr inbounds ([7 x i8], [7 x i8]* @.str.1, i32 0, i32 0), i32 23)
   store i32 7, i32* %a, align 4
   store i32 5, i32* %b, align 4
   %0 = load i32, i32* %a, align 4
-  store i32 %0, i32* %d, align 4
-  %1 = load i32, i32* %a, align 4
-  %2 = load i32, i32* %b, align 4
-  %call = call i32 @foo1(i32 %1, i32 %2)
+  %1 = load i32, i32* %b, align 4
+  %call = call i32 @foo1(i32 %0, i32 %1)
   store i32 %call, i32* %c1, align 4
-  %3 = load i32, i32* %a, align 4
-  %4 = load i32, i32* %b, align 4
-  %call2 = call i32 @foo3(i32 %3, i32 %4)
-  store i32 %call2, i32* %c2, align 4
-  %5 = load i32, i32* %c1, align 4
-  %call3 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([11 x i8], [11 x i8]* @.str.2, i64 0, i64 0), i32 %5)
-  %6 = load i32, i32* %c2, align 4
-  %call4 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([11 x i8], [11 x i8]* @.str.3, i64 0, i64 0), i32 %6)
+  %2 = load i32, i32* %a, align 4
+  %3 = load i32, i32* %b, align 4
+  %call3 = call i32 @foo3(i32 %2, i32 %3)
+  store i32 %call3, i32* %c2, align 4
+  %4 = load i32, i32* %c1, align 4
+  %call4 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([11 x i8], [11 x i8]* @.str.3, i64 0, i64 0), i32 %4)
+  %5 = load i32, i32* %c2, align 4
+  %call5 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([11 x i8], [11 x i8]* @.str.4, i64 0, i64 0), i32 %5)
   ret i32 0
 }
 
