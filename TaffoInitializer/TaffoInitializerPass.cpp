@@ -33,19 +33,12 @@ static RegisterPass<TaffoInitializer> X(
   false /* does not affect the CFG */,
   true /* Optimization Pass (sorta) */);
 
-bool EnableMathFunctionsConversionsFlag;
-bool EnableMathFunctionSinFlag;
-bool EnableMathFunctionCosFlag;                 // the actual value
+extern bool EnableMathFunctionsConversionsFlag;
+extern bool EnableMathFunctionSinFlag;
+extern bool EnableMathFunctionCosFlag;                 // the actual value
+extern bool ManualFunctionCloning;
 
 
-llvm::cl::opt<bool> ManualFunctionCloning("manualclone",
-    llvm::cl::desc("Enables function cloning only for annotated functions"), llvm::cl::init(false));
-static cl::opt<bool, true>  EnableMathFunctionsConversions("enablemath-all",
-    llvm::cl::desc("Enables function Math Conversion"), cl::location(EnableMathFunctionsConversionsFlag), llvm::cl::init(false));
-static cl::opt<bool, true>  EnableMathFunctionSin("enablemath-sin",
-    llvm::cl::desc("Enables sin Conversion"),  cl::location(EnableMathFunctionSinFlag), llvm::cl::init(false));
-static cl::opt<bool, true>  EnableMathFunctionCos("enablemath-cos",
-    llvm::cl::desc("Enables cos Conversion"),  cl::location(EnableMathFunctionCosFlag), llvm::cl::init(false));
 
 bool TaffoInitializer::runOnModule(Module &m)
 {
