@@ -1,4 +1,6 @@
-add_llvm_library(TaffoInitializer OBJECT BUILDTREE_ONLY
+set(SELF TaffoInitializer)
+
+add_llvm_library(${SELF} OBJECT BUILDTREE_ONLY
   TaffoInitializerPass.cpp
   Annotations.cpp
   AnnotationParser.cpp
@@ -7,5 +9,7 @@ add_llvm_library(TaffoInitializer OBJECT BUILDTREE_ONLY
   AnnotationParser.h
   TaffoInitializerPass.h
 )
-
-set_property(TARGET obj.TaffoInitializer PROPERTY POSITION_INDEPENDENT_CODE ON)
+target_link_libraries(obj.${SELF} PUBLIC
+  TaffoUtils
+  )
+set_property(TARGET obj.${SELF} PROPERTY POSITION_INDEPENDENT_CODE ON)
