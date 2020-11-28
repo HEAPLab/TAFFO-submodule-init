@@ -67,25 +67,25 @@ public:
 
   bool VisitVarDecl(VarDecl *Declaration) {
     // For debugging, dumping the AST nodes will show which nodes are being visited
-    Declaration->dump();
+    //Declaration->dump();
     //getting the name of the variable
     std::string Vname = Declaration->getQualifiedNameAsString();
-    //getting the function name, if the variable was declared inside a function
+    //getting the function name
     std::string Fname ="";
     auto FD = dyn_cast<FunctionDecl>(Declaration->getDeclContext());
+    //looking in the list if this variable has been annotated by the user
+    //global variables are not supported
     if (FD != NULL){
       Fname = FD->getNameInfo().getAsString();
-      std::cout << "the variable was declared in function " << Fname << "\n";
-    }
-    //looking in the list if this variable has been annotated by the user
-    for(PragmaTaffoInfo info : InfoList){
+      for(PragmaTaffoInfo info : InfoList){
         if(info.varName.compare(Vname)==0 && info.funName.compare(Fname)==0){
           Declaration->addAttr(AnnotateAttr::CreateImplicit(Declaration->getASTContext(),
                                                  info.annotation));
-          std::cout << "Added annotation: " << info.annotation << "\n";
         }
       }
-
+    }
+    
+    
     // The return value indicates whether we want the visitation to proceed.
     // Return false to stop the traversal of the AST.
     return true;
@@ -145,8 +145,9 @@ public:
     SmallVector<Token, 1> TokenList;
     
     PP.Lex(Tok);
-    if (!ParseTaffoValue(PP, Tok, PragmaName))
+    if (!ParseTaffoValue(PP, Tok, PragmaName)){
      return;
+    }
 
 
   if (Tok.isNot(tok::eod)) {
@@ -173,17 +174,23 @@ public:
     if (Tok.isNot(tok::identifier)) {
       printf("Error, a Taffo pragma must contain a function identifier\n");
       return false;
+    }else{
+      IdentifierInfo *FunInfo = Tok.getIdentifierInfo();
+      Info.funName = FunInfo->getName().str();
+      PP.Lex(Tok);
     }
-    IdentifierInfo *FunInfo = Tok.getIdentifierInfo();
-    Info.funName = FunInfo->getName().str();
-    PP.Lex(Tok);
+
+    if (Tok.is(tok::eod)) {
+      printf("Error,  a Taffo pragma must contain an annotation\n");
+      return false;
+    }
+    
 
     //parsing the actual annotation
     std::string annotation = "";
     annotation = Tok.getLiteralData();
     annotation = annotation.substr(0, annotation.find("\n"));
     annotation = annotation.substr(1, annotation.size()- 2);
-    std::cout  << "Just parse a Taffo Annotation: " << annotation << "\n";
     PP.Lex(Tok);
     
     
@@ -195,7 +202,6 @@ public:
 };
 
 }
-
 
 static FrontendPluginRegistry::Add<TaffoPragmaAction> X("taffo-plugin", "taffo plugin functions");
 static PragmaHandlerRegistry::Add<TaffoPragmaHandler> Y("taffo","taffo pragma description");
