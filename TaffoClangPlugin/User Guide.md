@@ -4,8 +4,6 @@ In particular, these annotations consists of pragmas. Pragmas are a widely used 
 
 TAFFO pragmas can be placed wherever in the code, each pragma on a separate line, whithout any other code on the same line. For a better readability, it's recommended to place a pragma just near the variable to be annotated.
 
-Global variables cannot be annotated.
-
 This guide presents how to use the plugin, and the syntax and semantics of TAFFO pragmas.
 
 ## How to build and use the Plugin
@@ -33,7 +31,7 @@ This will generate LLVM IR enriched with annotations which can be parsed and use
 
 ## Syntax of TAFFO pragmas
 Taffo pragmas come with the following specific syntax:
- - #pragma taffo VARNAME FUNNAME "ANNOTATION"
+ - S -> #pragma taffo VARNAME [FUNNAME] "ANNOTATION"
  - VARNAME -> STRING
  - FUNNAME -> STRING
  - STRING -> ([A-Z][a-z][0-9] [_])+
@@ -43,8 +41,8 @@ Taffo pragmas come with the following specific syntax:
  
 ## Semantics of TAFFO pragmas
  - VARNAME = name of the variable that's being annotated.
- - FUNNAME = name of the function where VARNAME is declared, and where VARNAME has its scope.
- 
+ - FUNNAME = name of the function where VARNAME is declared, and where VARNAME has its scope. Global variables are not declared inside any function: in this case no function name must be provided (that's why FUNNAME is optional).
+
  When the semantics of the annotation does not make sense(i.e. a mispelled varName or funName, or the function of varName is not the one declared in funName, etc...), unfortunately no warning is generated, and the pragma is ignored (so be careful!).
  
  

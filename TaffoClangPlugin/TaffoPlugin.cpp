@@ -73,18 +73,19 @@ public:
     //getting the function name
     std::string Fname ="";
     auto FD = dyn_cast<FunctionDecl>(Declaration->getDeclContext());
-    //looking in the list if this variable has been annotated by the user
-    //global variables are not supported
     if (FD != NULL){
+      //this is a local variable declaration
       Fname = FD->getNameInfo().getAsString();
-      for(PragmaTaffoInfo info : InfoList){
-        if(info.varName.compare(Vname)==0 && info.funName.compare(Fname)==0){
-          Declaration->addAttr(AnnotateAttr::CreateImplicit(Declaration->getASTContext(),
+    }
+    //else for global declarations we keep the empty string as function name, which is coherent why how annotations are parsed
+    
+    //looking in the list if this variable has been annotated by the user
+    for(PragmaTaffoInfo info : InfoList){
+      if(info.varName.compare(Vname)==0 && info.funName.compare(Fname)==0){
+        Declaration->addAttr(AnnotateAttr::CreateImplicit(Declaration->getASTContext(),
                                                  info.annotation));
-        }
       }
     }
-    
     
     // The return value indicates whether we want the visitation to proceed.
     // Return false to stop the traversal of the AST.
@@ -170,11 +171,12 @@ public:
     Info.varName = VarInfo->getName().str();
     PP.Lex(Tok);
 
-    //parsing FunName
+    //parsing FunName (if its exists)
     if (Tok.isNot(tok::identifier)) {
-      printf("Error, a Taffo pragma must contain a function identifier\n");
-      return false;
+      //this is an annotation for a global variable, there is no funName
+      Info.funName = "";
     }else{
+      //this is an annotation for a local variable, funName has been specified
       IdentifierInfo *FunInfo = Tok.getIdentifierInfo();
       Info.funName = FunInfo->getName().str();
       PP.Lex(Tok);
