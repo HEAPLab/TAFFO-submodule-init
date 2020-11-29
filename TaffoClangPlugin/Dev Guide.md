@@ -1,8 +1,8 @@
 # TaffoClangPlugin Dev Guide aka What you need to know besides the User guide
-The plugin adds to Clang two components: a Pragma Handler ( called creatively TaffoPragmaHandler) and a Frontend Plugin (TaffoPragmaAction), which is just an extension of a Frontend Action. 
+The plugin adds to Clang two components: a Pragma Handler ( called creatively TaffoPragmaHandler) and a Frontend Plugin (TaffoPragmaAction), which is an extension of a Frontend Action. 
 
 ## Pragma Handler - Lexer phase
-Pragma are actually just preprocessing directives. Thus when we want to add a pragma to the C language we just need to declare an handler for our custom pragma, and then find a way to pass the annotation to the backend. The current way is to save all the annotation in an array, and then reinsert them as attributes.
+Pragma are actually just preprocessing directives. Thus when we want to add a pragma to the C language we need to declare an handler for our custom pragma, and then find a way to pass the annotation to the backend. The current way is to save all the annotation in an array, and then reinsert them as attributes.
 
 The identifier of our pragma is the string "taffo". During the preprocessing phase of the code all the pragmas that start with "taffo" are passed to the overridden HandlePragma function of our TaffoPragmaHandler, which works in the following way.
 
@@ -25,11 +25,17 @@ VisitVarDecl checks whether the declared variable has been annotated: if so, it 
 
 ## References(Clang 10)
 [Clang AST tutorial](http://swtv.kaist.ac.kr/courses/cs453-fall13/Clang%20tutorial%20v4.pdf)
-[official Frontend Actions doc](https://releases.llvm.org/10.0.0/tools/clang/docs/RAVFrontendAction.html)
-[official Plugins doc](https://releases.llvm.org/10.0.0/tools/clang/docs/ClangPlugins.html)
+
+[Official Frontend Actions doc](https://releases.llvm.org/10.0.0/tools/clang/docs/RAVFrontendAction.html)
+
+[Official Plugins doc](https://releases.llvm.org/10.0.0/tools/clang/docs/ClangPlugins.html)
+
 [Plugin tutorial](https://chromium.googlesource.com/chromium/src/+/master/docs/writing_clang_plugins.md)
-[official Clang AST doc](https://releases.llvm.org/10.0.0/tools/clang/docs/IntroductionToTheClangAST.html)
+
+[Official Clang AST doc](https://releases.llvm.org/10.0.0/tools/clang/docs/IntroductionToTheClangAST.html)
+
 [ASTConsumer code reference](https://clang.llvm.org/doxygen/classclang_1_1ASTConsumer.html)
+
 [VarDecl code reference](https://clang.llvm.org/doxygen/classclang_1_1VarDecl.html#details)
 
  
