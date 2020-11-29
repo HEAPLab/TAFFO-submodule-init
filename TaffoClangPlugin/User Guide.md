@@ -37,7 +37,9 @@ Taffo pragmas come with the following specific syntax:
  - STRING -> ([A-Z][a-z][0-9] [_])+
  - ANNOTATION follows the general TAFFO syntax for annotation specified in https://github.com/HEAPLab/TAFFO/blob/develop/doc/AnnotationSyntax.md
  
- When the syntax is not respected, a simple warning is generated, and the annotation is ignored
+ When the syntax is not respected, a message is printed to std::out, and the annotation is ignored
+ When there are more strings at the end of the pragma, a simple warning is generated, but the annotation remains valid, and the addit
+ 
  
 ## Semantics of TAFFO pragmas
  - VARNAME = name of the variable that's being annotated.

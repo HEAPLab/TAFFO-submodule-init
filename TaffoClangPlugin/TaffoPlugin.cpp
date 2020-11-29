@@ -49,7 +49,6 @@ using namespace clang;
 namespace {
 
 struct PragmaTaffoInfo{
-    Token PragmaName;
     std::string varName;
     std::string funName;
     std::string annotation;
@@ -95,9 +94,7 @@ public:
     ASTContext *Context;
 };
 
-
-
-
+//parsing phase
 class TaffoPragmaConsumer : public ASTConsumer {
 public:
   explicit TaffoPragmaConsumer(ASTContext *Context)
@@ -142,21 +139,19 @@ public:
   void HandlePragma(Preprocessor &PP, PragmaIntroducer Introducer,
                     Token &PragmaTok) {
     Token Tok;
-    Token PragmaName = Tok;
-    SmallVector<Token, 1> TokenList;
-    
+    //parsing through the "taffo" string
     PP.Lex(Tok);
+
     if (!ParseTaffoValue(PP, Tok, PragmaName)){
      return;
     }
-
-
-  if (Tok.isNot(tok::eod)) {
-    printf("Error,  unexpected extra tokens at the end of pragma taffo\n");
-    PP.Diag(Tok.getLocation(), diag::warn_pragma_extra_tokens_at_eol)
-        << "taffo pragma";
-    return;
-  }
+    
+    if (Tok.isNot(tok::eod)) {
+      std::cout << "Error,  unexpected extra tokens at the end of pragma taffo\n";
+      PP.Diag(Tok.getLocation(), diag::warn_pragma_extra_tokens_at_eol)
+          << "taffo pragma";
+      return;
+    }
 
 }
 
@@ -164,7 +159,7 @@ public:
     PragmaTaffoInfo Info;
     //parsing VarName
     if (Tok.isNot(tok::identifier)) {
-      printf("Error, a Taffo pragma must contain a variable identifier\n");
+      std::cout << "Error, a Taffo pragma must contain a variable identifier\n";
       return false;
     }
     IdentifierInfo *VarInfo = Tok.getIdentifierInfo();
@@ -183,7 +178,7 @@ public:
     }
 
     if (Tok.is(tok::eod)) {
-      printf("Error,  a Taffo pragma must contain an annotation\n");
+      std::cout << "Error,  a Taffo pragma must contain an annotation\n";
       return false;
     }
     
