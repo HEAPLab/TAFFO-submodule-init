@@ -33,10 +33,24 @@ static RegisterPass<TaffoInitializer> X(
   false /* does not affect the CFG */,
   true /* Optimization Pass (sorta) */);
 
-extern bool EnableMathFunctionsConversionsFlag;
-extern bool EnableMathFunctionSinFlag;
-extern bool EnableMathFunctionCosFlag;                 // the actual value
-extern bool ManualFunctionCloning;
+ bool EnableMathFunctionsConversionsFlag;
+ bool EnableMathFunctionSinFlag;
+ bool EnableMathFunctionCosFlag;                 // the actual value
+ bool ManualFunctionCloningFlag;
+ float  MathZFlag;
+
+
+
+static cl::opt<float, true>  MathZ("MathZ",
+    llvm::cl::desc("Enable Lut table"), cl::location(MathZFlag), llvm::cl::init(0));
+llvm::cl::opt<bool, true> ManualFunctionCloning("manualclone",
+    llvm::cl::desc("Enables function cloning only for annotated functions"), cl::location(ManualFunctionCloningFlag), llvm::cl::init(false));
+static cl::opt<bool, true>  EnableMathFunctionsConversions("enablemath-all",
+    llvm::cl::desc("Enables function Math Conversion"), cl::location(EnableMathFunctionsConversionsFlag), llvm::cl::init(false));
+static cl::opt<bool, true>  EnableMathFunctionSin("enablemath-sin",
+    llvm::cl::desc("Enables sin Conversion"),  cl::location(EnableMathFunctionSinFlag), llvm::cl::init(false));
+static cl::opt<bool, true>  EnableMathFunctionCos("enablemath-cos",
+    llvm::cl::desc("Enables cos Conversion"),  cl::location(EnableMathFunctionCosFlag), llvm::cl::init(false));
 
 
 
@@ -413,7 +427,8 @@ void TaffoInitializer::generateFunctionSpace(ConvQueueT& vals,
     }
     if(isSpecialFunction(oldF))
       continue;
-    if (ManualFunctionCloning) {
+     LLVM_DEBUG(dbgs() << "Manual function cloning "<< ManualFunctionCloningFlag <<"\n");  
+    if (ManualFunctionCloningFlag) {
       if (enabledFunctions.count(oldF) == 0) {
         LLVM_DEBUG(dbgs() << "skipped cloning of function from call " << *v << ": function disabled\n");
         continue;
