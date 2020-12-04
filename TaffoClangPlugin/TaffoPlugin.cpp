@@ -142,7 +142,7 @@ public:
     //parsing through the "taffo" string
     PP.Lex(Tok);
 
-    if (!ParseTaffoValue(PP, Tok, PragmaName)){
+    if (!ParseTaffoValue(PP, Tok)){
      return;
     }
     
@@ -155,7 +155,7 @@ public:
 
 }
 
-  static bool ParseTaffoValue(Preprocessor &PP, Token &Tok,Token PragmaName) {
+  static bool ParseTaffoValue(Preprocessor &PP, Token &Tok) {
     PragmaTaffoInfo Info;
     //parsing VarName
     if (Tok.isNot(tok::identifier)) {
@@ -192,7 +192,6 @@ public:
     
     
     Info.annotation = annotation;
-    Info.PragmaName = PragmaName;
     InfoList.push_back(Info);
     return true;
   } 
