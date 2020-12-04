@@ -81,6 +81,7 @@ public:
     //looking in the list if this variable has been annotated by the user
     for(PragmaTaffoInfo info : InfoList){
       if(info.varName.compare(Vname)==0 && info.funName.compare(Fname)==0){
+        std::cout << "actual annotation: " << info.annotation << "\n";
         Declaration->addAttr(AnnotateAttr::CreateImplicit(Declaration->getASTContext(),
                                                  info.annotation));
       }
@@ -138,6 +139,7 @@ public:
   TaffoPragmaHandler() : PragmaHandler("taffo") { }
   void HandlePragma(Preprocessor &PP, PragmaIntroducer Introducer,
                     Token &PragmaTok) {
+    std::cout << "parsed a taffo pragma\n";
     Token Tok;
     //parsing through the "taffo" string
     PP.Lex(Tok);
@@ -187,7 +189,7 @@ public:
     std::string annotation = "";
     annotation = Tok.getLiteralData();
     annotation = annotation.substr(0, annotation.find("\n"));
-    annotation = annotation.substr(1, annotation.size()- 2);
+    annotation = annotation.substr(1, annotation.size()- 3);
     PP.Lex(Tok);
     
     
