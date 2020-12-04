@@ -64,7 +64,9 @@ Taffo pragmas follow this specific syntax:
  - FUNNAME = name of the function where VARNAME is declared, and where VARNAME has its scope. Global variables are not declared inside any function: in this case no function name must be provided (that's why FUNNAME is optional).
 
  When the semantics of the annotation does not make sense(i.e. a mispelled varName or funName, or the function of varName is not the one declared in funName, etc...), unfortunately no warning is generated, and the pragma is ignored (so be careful!).
- 
+
+## Notes
+When using Taffo inside a macro, write _Pragma ("taffo VARNAME [FUNNAME]  \"ANNOTATION\" ) 
  
 
  
