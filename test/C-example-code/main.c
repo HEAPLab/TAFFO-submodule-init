@@ -13,7 +13,6 @@ typedef struct {
 
 
 
-
 int main() {
 	#pragma taffo a main "scalar(disabled range(-3000, 3000))"
 	int a;
@@ -29,7 +28,8 @@ int main() {
 	return 0;
 }
 
-int foo1(int c, int b){
+#pragma taffo foo1 "scalar(disabled range(-4000, 4000))"
+int foo1  (int c, int b){
 	int a = 1;
 	int d = a;
 	return c +b + a;

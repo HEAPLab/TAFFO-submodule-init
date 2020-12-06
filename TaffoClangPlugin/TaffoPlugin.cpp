@@ -49,13 +49,13 @@ using namespace clang;
 namespace {
 
 struct PragmaTaffoInfo{
-    std::string varName;
+    std::string ID;
     std::string funName;
     std::string annotation;
   };
 
-
-static SmallVector<PragmaTaffoInfo, 32> InfoList;
+// 64 annotations is the maximum allowed for a compilation unit
+static SmallVector<PragmaTaffoInfo, 64> InfoList;
 
 
 class TaffoPragmaVisitor
@@ -80,8 +80,7 @@ public:
     
     //looking in the list if this variable has been annotated by the user
     for(PragmaTaffoInfo info : InfoList){
-      if(info.varName.compare(Vname)==0 && info.funName.compare(Fname)==0){
-        std::cout << "actual annotation: " << info.annotation << "\n";
+      if(info.ID.compare(Vname)==0 && info.funName.compare(Fname)==0){
         Declaration->addAttr(AnnotateAttr::CreateImplicit(Declaration->getASTContext(),
                                                  info.annotation));
       }
@@ -91,6 +90,25 @@ public:
     // Return false to stop the traversal of the AST.
     return true;
   }
+
+  bool VisitFunctionDecl(FunctionDecl *Declaration) {
+    // For debugging, dumping the AST nodes will show which nodes are being visited
+    // Declaration->dump();
+    //getting the function name
+    std::string Fname = Declaration->getQualifiedNameAsString();    
+    //looking in the list if this variable has been annotated by the user
+    for(PragmaTaffoInfo info : InfoList){
+      if(info.ID.compare(Fname)==0 && info.funName.compare("")==0){
+        Declaration->addAttr(AnnotateAttr::CreateImplicit(Declaration->getASTContext(),
+                                                 info.annotation));
+      }
+    }
+    
+    // The return value indicates whether we want the visitation to proceed.
+    // Return false to stop the traversal of the AST.
+    return true;
+  }
+
   private:
     ASTContext *Context;
 };
@@ -139,38 +157,27 @@ public:
   TaffoPragmaHandler() : PragmaHandler("taffo") { }
   void HandlePragma(Preprocessor &PP, PragmaIntroducer Introducer,
                     Token &PragmaTok) {
-    std::cout << "parsed a taffo pragma\n";
     Token Tok;
-    //parsing through the "taffo" string
+    //passing through the "taffo" string
     PP.Lex(Tok);
 
-    if (!ParseTaffoValue(PP, Tok)){
-     return;
-    }
-    
-    if (Tok.isNot(tok::eod)) {
-      std::cout << "Error,  unexpected extra tokens at the end of pragma taffo\n";
-      PP.Diag(Tok.getLocation(), diag::warn_pragma_extra_tokens_at_eol)
-          << "taffo pragma";
-      return;
-    }
-
+    ParseTaffoValue(PP, Tok);
 }
 
-  static bool ParseTaffoValue(Preprocessor &PP, Token &Tok) {
+  static void ParseTaffoValue(Preprocessor &PP, Token &Tok) {
     PragmaTaffoInfo Info;
-    //parsing VarName
+    //parsing ID
     if (Tok.isNot(tok::identifier)) {
-      std::cout << "Error, a Taffo pragma must contain a variable identifier\n";
-      return false;
+      std::cout << "Error, a Taffo pragma must contain an identifier\n";
+      return;
     }
-    IdentifierInfo *VarInfo = Tok.getIdentifierInfo();
-    Info.varName = VarInfo->getName().str();
+    IdentifierInfo *ID = Tok.getIdentifierInfo();
+    Info.ID = ID->getName().str();
     PP.Lex(Tok);
 
     //parsing FunName (if its exists)
     if (Tok.isNot(tok::identifier)) {
-      //this is an annotation for a global variable, there is no funName
+      //this is an annotation for a global variable or for a function declaration, there is no funName
       Info.funName = "";
     }else{
       //this is an annotation for a local variable, funName has been specified
@@ -181,21 +188,44 @@ public:
 
     if (Tok.is(tok::eod)) {
       std::cout << "Error,  a Taffo pragma must contain an annotation\n";
-      return false;
+      return;
     }
     
 
     //parsing the actual annotation
     std::string annotation = "";
-    annotation = Tok.getLiteralData();
-    annotation = annotation.substr(0, annotation.find("\n"));
-    annotation = annotation.substr(1, annotation.size()- 3);
+    std::string ann = Tok.getLiteralData();
+    ann = ann.substr(0, ann.find("\n"));
+    annotation += ann.substr(1, ann.find_last_of("\"")-1);
     PP.Lex(Tok);
+
+
+    std::string extra = "";
+    if (Tok.isNot(tok::eod)) {
+      while (Tok.isNot(tok::eod)){
+        std::string current = Tok.getLiteralData();
+        std::cout << "extra token read: " << current << "\n";
+        extra += current;
+        PP.Lex(Tok);
+      }
+      std::cout << "Warning: extra tokens at the end of pragma taffo; " << extra << "----end of token\n";
+      PP.Diag(Tok.getLocation(), diag::warn_pragma_extra_tokens_at_eol)
+          << "taffo pragma";
+    }
+
+
+    //this is to deal with macro expansions
+    size_t pos = 0;
+    std::string search = "\"";
+    std::string replace = "";
+    while ((pos = annotation.find(search, pos)) != std::string::npos) {
+         annotation.replace(pos, search.length(), replace);
+         pos += replace.length();
+    }
     
     
     Info.annotation = annotation;
     InfoList.push_back(Info);
-    return true;
   } 
 };
 

@@ -1,17 +1,11 @@
-; ModuleID = 'main.c'
-source_filename = "main.c"
-target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
-target triple = "x86_64-unknown-linux-gnu"
 
-%struct.RgbPixel = type { float, float, float, i32, float }
 
 @.str = private unnamed_addr constant [36 x i8] c"scalar(disabled range(-3000, 3000))\00", section "llvm.metadata"
 @.str.1 = private unnamed_addr constant [7 x i8] c"main.c\00", section "llvm.metadata"
 @.str.2 = private unnamed_addr constant [11 x i8] c"C1 is: %d\0A\00", align 1
 @.str.3 = private unnamed_addr constant [11 x i8] c"C2 is: %d\0A\00", align 1
-@.str.4 = private unnamed_addr constant [1 x i8] zeroinitializer, section "llvm.metadata"
-@.str.5 = private unnamed_addr constant [36 x i8] c"scalar(disabled range(-4000, 4000))\00", section "llvm.metadata"
-@llvm.global.annotations = appending global [2 x { i8*, i8*, i8*, i32 }] [{ i8*, i8*, i8*, i32 } { i8* bitcast (i32 (i32, i32)* @foo1 to i8*), i8* getelementptr inbounds ([1 x i8], [1 x i8]* @.str.4, i32 0, i32 0), i8* getelementptr inbounds ([7 x i8], [7 x i8]* @.str.1, i32 0, i32 0), i32 32 }, { i8*, i8*, i8*, i32 } { i8* bitcast (i32 (i32, i32)* @foo1 to i8*), i8* getelementptr inbounds ([36 x i8], [36 x i8]* @.str.5, i32 0, i32 0), i8* getelementptr inbounds ([7 x i8], [7 x i8]* @.str.1, i32 0, i32 0), i32 32 }], section "llvm.metadata"
+@.str.4 = private unnamed_addr constant [36 x i8] c"scalar(disabled range(-4000, 4000))\00", section "llvm.metadata"
+@llvm.global.annotations = appending global [1 x { i8*, i8*, i8*, i32 }] [{ i8*, i8*, i8*, i32 } { i8* bitcast (i32 (i32, i32)* @foo1 to i8*), i8* getelementptr inbounds ([36 x i8], [36 x i8]* @.str.4, i32 0, i32 0), i8* getelementptr inbounds ([7 x i8], [7 x i8]* @.str.1, i32 0, i32 0), i32 31 }], section "llvm.metadata"
 
 ; Function Attrs: noinline nounwind optnone uwtable
 define dso_local i32 @main() #0 {
