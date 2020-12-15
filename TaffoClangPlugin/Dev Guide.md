@@ -22,8 +22,7 @@ What gets to ParseTaffoPragma is(double quotes included):
 
 We need then to parse the chopped annotation and throw away all the tokens after the first new line, taking care of ill-formed annotations where some characters are specified outside of double quotes.
 
-
-After the processing ends, the pragma is thrown away and doesn't appear anymore in the code to compile.
+After the (pre)processing ends, the pragma is thrown away and doesn't appear anymore in the code to compile.
 
 We need the programmer to specify the target id and funName because pragmas are not bounded to any other piece of code before or after the pragma itself, unlikely pure attributes.
 
@@ -54,6 +53,8 @@ VisitVarDecl checks whether the declared variable has been annotated: if so, it 
 [ASTConsumer code reference](https://clang.llvm.org/doxygen/classclang_1_1ASTConsumer.html)
 
 [VarDecl code reference](https://clang.llvm.org/doxygen/classclang_1_1VarDecl.html#details)
+
+[Stringification of macros](https://gcc.gnu.org/onlinedocs/gcc-4.8.5/cpp/Stringification.html)
 
  
 
