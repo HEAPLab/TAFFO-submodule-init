@@ -160,15 +160,15 @@ public:
     Token Tok;
     //passing through the "taffo" string
     PP.Lex(Tok);
-
     ParseTaffoValue(PP, Tok);
 }
 
   static void ParseTaffoValue(Preprocessor &PP, Token &Tok) {
     PragmaTaffoInfo Info;
+
     //parsing ID
     if (Tok.isNot(tok::identifier)) {
-      std::cout << "Error, a Taffo pragma must contain an identifier\n";
+      PP.Diag(Tok.getLocation(), diag::warn_pragma_missing_argument) << "taffo";
       return;
     }
     IdentifierInfo *ID = Tok.getIdentifierInfo();
@@ -186,45 +186,48 @@ public:
       PP.Lex(Tok);
     }
 
+    //parsing the actual annotation
     if (Tok.is(tok::eod)) {
-      std::cout << "Error,  a Taffo pragma must contain an annotation\n";
+      PP.Diag(Tok.getLocation(), diag::warn_pragma_missing_argument) << "taffo";
+      return;
+    }
+    std::string ann = Tok.getLiteralData();
+    ann = ann.substr(0, ann.find("\n"));  
+    bool in = false;
+    std::string parsed = "";
+    int pos =0;
+    while (pos < ann.size()){
+      if(ann[pos] == '\"'){
+        in = !in;
+      }
+      else{
+        if(!in && ann[pos] != ' ' ){
+          PP.Diag(Tok.getLocation(), diag::warn_pragma_invalid_argument) << "taffo";
+          return;
+        }
+        if(in){
+          parsed.push_back(ann[pos]);
+        }
+      }
+      pos++;
+    }
+    if (in){
+      PP.Diag(Tok.getLocation(), diag::warn_pragma_invalid_argument) << "taffo";
       return;
     }
     
-
-    //parsing the actual annotation
-    std::string annotation = "";
-    std::string ann = Tok.getLiteralData();
-    ann = ann.substr(0, ann.find("\n"));
-    annotation += ann.substr(1, ann.find_last_of("\"")-1);
     PP.Lex(Tok);
 
 
+    // extra tokens at the end of taffo pragma are added in case macros are used
     std::string extra = "";
     if (Tok.isNot(tok::eod)) {
       while (Tok.isNot(tok::eod)){
-        std::string current = Tok.getLiteralData();
-        std::cout << "extra token read: " << current << "\n";
-        extra += current;
         PP.Lex(Tok);
       }
-      std::cout << "Warning: extra tokens at the end of pragma taffo; " << extra << "----end of token\n";
-      PP.Diag(Tok.getLocation(), diag::warn_pragma_extra_tokens_at_eol)
-          << "taffo pragma";
     }
 
-
-    //this is to deal with macro expansions
-    size_t pos = 0;
-    std::string search = "\"";
-    std::string replace = "";
-    while ((pos = annotation.find(search, pos)) != std::string::npos) {
-         annotation.replace(pos, search.length(), replace);
-         pos += replace.length();
-    }
-    
-    
-    Info.annotation = annotation;
+    Info.annotation = parsed;
     InfoList.push_back(Info);
   } 
 };

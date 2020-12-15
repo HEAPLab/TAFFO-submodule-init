@@ -58,20 +58,20 @@ This will generate LLVM IR enriched with annotations which can be parsed and use
 
 ## Syntax of TAFFO pragmas
 Taffo pragmas follow a specific syntax depending on the pragma target:
- - S            -> #pragma taffo LOCALVAR|GLOBALVAR|FUNCTIONPAR|FUNCTIONDECL
- - LOCALVAR     -> ID FUNNAME "ANNOTATION"
+ - S            -> #pragma taffo LOCALVAR|GLOBALVAR|FUNCTIONPAR|FUNCTIONDECL  
+ - LOCALVAR     -> ID FUNNAME ("ANNOTATION" | SPACE)+
  - GLOBALVAR    -> ID "ANNOTATION"
- - FUNCTIONPAR  -> ID FUNNAME "ANNOTATION"
+ - FUNCTIONPAR  -> ID FUNNAME ("ANNOTATION" | SPACE)+
  - FUNCTIONDECL -> ID
  - ID           -> STRING
  - FUNNAME      -> STRING
  - STRING       -> ([A-Z][a-z][0-9] [_])+
+ - SPACE        -> ' '
  - ANNOTATION follows the general TAFFO syntax for annotation specified in https://github.com/HEAPLab/TAFFO/blob/develop/doc/AnnotationSyntax.md
  
- When the syntax is not respected, a message is printed to std::out, and the annotation is ignored.
+ When the syntax is not respected, a warning is generated, and the annotation is ignored.
  
- When there are more strings at the end of the pragma, a simple warning is generated, but the annotation remains valid, and the additional strings are ignored.
- 
+ More than one annotation may be specified in double quotes: they are simply parsed together, as if they were a unique annotation.
  
 ## Semantics of TAFFO pragmas
  - ID      = name of the annotation target (it can be a variable identifier or a function name)

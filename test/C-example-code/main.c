@@ -14,7 +14,7 @@ typedef struct {
 
 
 int main() {
-	#pragma taffo a main "scalar(disabled range(-3000, 3000))"
+	#pragma taffo a main "scalar(disabled range(-3000, 3000))" "extra tokensss"
 	int a;
 	int b, c1, c2;
 	RgbPixel pixel;
