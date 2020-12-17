@@ -120,7 +120,7 @@ void taffo::manageIndirectCalls(llvm::Module &m) {
         auto *curCall = new CallSite(curCallInstruction);
         llvm::Function *curCallFunction = curCall->getCalledFunction();
 
-        if (isIndirectFunction(curCallFunction)) {
+        if (curCallFunction && isIndirectFunction(curCallFunction)) {
           handleIndirectCall(m, toDelete, curCallInstruction, curCall, curCallFunction);
         }
       }
