@@ -93,8 +93,76 @@ void handleKmpcFork(const Module &m, std::vector<Instruction *> &toDelete, CallI
   LLVM_DEBUG(dbgs() << "Newly created instruction: " << *trampolineCallInstruction << "\n");
 }
 
+void handleReduce(const Module &m, std::vector<Instruction *> &toDelete, CallInst *curCallInstruction,
+                    const CallSite *curCall, Function *indirectFunction) {
+  std::vector<Type *> paramsFunc;
+
+  auto functionType = indirectFunction->getFunctionType();
+
+  auto params = functionType->params();
+  paramsFunc.reserve(2);
+  for (auto i = 0; i < 4; i++) {
+    paramsFunc.push_back(params[i]);
+  }
+  for (auto i = 4; i < curCall->getNumArgOperands(); i++) {
+    paramsFunc.push_back(curCall->getArgOperand(i)->getType());
+  }
+
+  auto newFunctionType = FunctionType::get(functionType->getReturnType(), paramsFunc, false);
+  auto newFunctionName = indirectFunction->getName() + "_trampoline";
+  Function *newF = Function::Create(
+          newFunctionType, indirectFunction->getLinkage(),
+          newFunctionName, indirectFunction->getParent());
+
+  BasicBlock *block = BasicBlock::Create(m.getContext(), "main", newF);
+
+
+  auto microTaskFunction = dyn_cast<Function>(curCall->arg_begin() + 5);
+
+  std::vector<Value *> convArgs;
+  std::vector<Value *> trampolineArgs;
+
+  // Create null pointer to patch the internal OpenMP argument
+  Value *nullPointer = ConstantPointerNull::get(PointerType::get(Type::getInt32Ty(newF->getContext()), 0));
+  convArgs.push_back(nullPointer);
+  convArgs.push_back(nullPointer);
+
+  for (auto argIt = curCall->arg_begin(); argIt < curCall->arg_begin() + 4; argIt += 1) {
+    trampolineArgs.push_back(*argIt);
+  }
+  for (auto argIt = curCall->arg_begin() + 4; argIt < curCall->arg_end(); argIt += 1) {
+    convArgs.push_back(*argIt);
+    trampolineArgs.push_back(*argIt);
+  }
+
+  // Keep ref to the indirect function, preventing globaldce pass to destroy it
+  auto magicBitCast = new BitCastInst(indirectFunction, indirectFunction->getType(), "", block);
+  ReturnInst::Create(m.getContext(), llvm::ConstantInt::get(llvm::Type::getInt32Ty(m.getContext()), 2), block);
+
+  std::vector<Value *> outlinedArgumentsInsideTrampoline;
+
+  outlinedArgumentsInsideTrampoline.push_back(newF->arg_begin() + 4);
+  outlinedArgumentsInsideTrampoline.push_back(newF->arg_begin() + 4);
+
+  CallInst *outlinedCall = CallInst::Create(microTaskFunction, outlinedArgumentsInsideTrampoline);
+  outlinedCall->insertAfter(magicBitCast);
+
+  CallInst *trampolineCallInstruction = CallInst::Create(newF, trampolineArgs);
+  trampolineCallInstruction->setCallingConv(curCallInstruction->getCallingConv());
+  trampolineCallInstruction->insertBefore(curCallInstruction);
+  trampolineCallInstruction->setDebugLoc(curCallInstruction->getDebugLoc());
+
+  MDNode *indirectFunctionRef = MDNode::get(curCallInstruction->getContext(), ValueAsMetadata::get(indirectFunction));
+  trampolineCallInstruction->setMetadata(INDIRECT_METADATA, indirectFunctionRef);
+
+  toDelete.push_back(curCallInstruction);
+  LLVM_DEBUG(dbgs() << "Newly created instruction: " << *trampolineCallInstruction << "\n");
+}
+
 const std::map<const std::string, handler_function> indirectCallFunctions = {
         {"__kmpc_fork_call", &handleKmpcFork},
+        {"__kmpc_reduce_nowait", &handleReduce},
+        {"__kmpc_reduce", &handleReduce}
 //        {"__kmpc_omp_task_alloc", &handleCallToKmpcOmpTaskAlloc},
 //        {"__kmpc_omp_task", &handleCallToKmpcOmpTask}
 };
@@ -129,6 +197,6 @@ void taffo::manageIndirectCalls(llvm::Module &m) {
 
   // Delete the Instructions in a separate loop
   for (auto inst: toDelete) {
-    inst->eraseFromParent();
+    //inst->eraseFromParent(); # FIXME CHECK THE USAGE IN CASE OF NON-VOID FUNCTIONS
   }
 }
