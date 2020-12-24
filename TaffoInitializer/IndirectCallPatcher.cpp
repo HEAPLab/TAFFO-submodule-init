@@ -155,6 +155,8 @@ void handleReduce(const Module &m, std::vector<Instruction *> &toDelete, CallIns
   MDNode *indirectFunctionRef = MDNode::get(curCallInstruction->getContext(), ValueAsMetadata::get(indirectFunction));
   trampolineCallInstruction->setMetadata(INDIRECT_METADATA, indirectFunctionRef);
 
+  curCallInstruction->replaceAllUsesWith(trampolineCallInstruction);
+
   toDelete.push_back(curCallInstruction);
   LLVM_DEBUG(dbgs() << "Newly created instruction: " << *trampolineCallInstruction << "\n");
 }
@@ -197,6 +199,6 @@ void taffo::manageIndirectCalls(llvm::Module &m) {
 
   // Delete the Instructions in a separate loop
   for (auto inst: toDelete) {
-    //inst->eraseFromParent(); # FIXME CHECK THE USAGE IN CASE OF NON-VOID FUNCTIONS
+    inst->eraseFromParent();
   }
 }
