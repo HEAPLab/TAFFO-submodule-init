@@ -57,7 +57,7 @@ This will generate LLVM IR enriched with annotations which can be parsed and use
  
 
 ## Syntax of TAFFO pragmas
-Taffo pragmas follow a specific syntax depending on the pragma target:
+Taffo pragmas follow a specific syntax depending on the pragma target (non terminals are indicated with capital letters):
  - S            -> #pragma taffo LOCALVAR|GLOBALVAR|FUNCTIONPAR|FUNCTIONDECL  
  - LOCALVAR     -> ID FUNNAME ("ANNOTATION" | SPACE)+
  - GLOBALVAR    -> ID "ANNOTATION"
@@ -81,14 +81,16 @@ Taffo pragmas follow a specific syntax depending on the pragma target:
 
 ## Notes
 Being a directive, the Taffo pragma cannot be produced as the result of macro expansion. 
-To declare a pragma inside a macro, write (e.g. annotating variable id in main) _Pragma ("taffo id main  \"ANNOTATION\").
+To declare a pragma inside a macro, write (e.g. annotating variable id in main) _Pragma ("taffo id main  \"example_annotation\").
 
-Likewise, to use a macro inside a pragma, we need the following workaround (we are annotating the variable image inside the main function): 
+Likewise, to use a macro inside a pragma, we need the following workaround (we are annotating the variable image inside the main function with a macro string): 
 #define ANNOTATION_RGBPIXEL         "struct[scalar(range(0,255)),scalar(range(0,255)),scalar(range(0,255)),void,scalar(range(0,1))]"
 #define ANNOTATION_RGBIMAGE         "struct[void,void," ANNOTATION_RGBPIXEL "]"
 #define SUB(x) _Pragma (#x)
 #define DO_PRAGMA(x) SUB(x) 
 DO_PRAGMA(taffo image main ANNOTATION_RGBIMAGE)
+
+The DO_PRAGMA workaround works also in the first case, i.e. declaring a pragma inside a macro, and it's the only way to declare, inside a macro, a pragma which in turn uses a macro inside itself.
 
 
 

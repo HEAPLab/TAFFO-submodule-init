@@ -6,7 +6,7 @@ Pragma are actually just preprocessing directives. Thus when we want to add a pr
 
 The identifier of our pragma is the string "taffo". During the preprocessing phase of the code all the pragmas that start with "taffo" are passed to the overridden HandlePragma function of our TaffoPragmaHandler, which works in the following way.
 
-The current string of code is stored into Tok, while PP.Lex(Tok) is used to move to the next string of code. ParseTaffoValue is just a function which parses the pragma one string at a time, creates a TaffoPragmaInfo and adds it to a global array. TaffoPragmaInfo is just a container for the parsed pragma. We use the double quotes for the actual annotation(s) to make it parsed all together(what a trick!). 
+The current string of code is stored into Tok, while PP.Lex(Tok) is used to move to the next string of code. ParseTaffoValue is just a function which parses the pragma one string at a time, creates a TaffoPragmaInfo and adds it to a global vector. TaffoPragmaInfo is just a container for the parsed pragma. We use the double quotes for the actual annotation(s) to make it parsed all together(what a trick!). 
 
 They only purpose of allowing multiple annotations is actually to allow the use of macros inside a pragma: after a macro has been converted in the actual string, those double quotes are still present. Let's consider the example:
 
@@ -21,6 +21,8 @@ What gets to ParseTaffoPragma is(double quotes included):
   "struct[void,void," "struct[scalar(range(0,255)),scalar(range(0,255)),scalar(range(0,255)),void,scalar(range(0,1))]" "]" \n "struct[scalar(range(0,255)),scalar(range(0,255)),scalar(range(0,255)),void,scalar(range(0,1))]" "]" \n "]". 
 
 We need then to parse the chopped annotation and throw away all the tokens after the first new line, taking care of ill-formed annotations where some characters are specified outside of double quotes.
+
+Before adding the new info to the vector we check whether the same value has already been annotated: in case so, we do not add the new info to the vector. This forbids multiple taffo pragmas for the same variable.
 
 After the (pre)processing ends, the pragma is thrown away and doesn't appear anymore in the code to compile.
 

@@ -52,10 +52,11 @@ struct PragmaTaffoInfo{
     std::string ID;
     std::string funName;
     std::string annotation;
+    bool used;
   };
 
 // 64 annotations is the maximum allowed for a compilation unit
-static SmallVector<PragmaTaffoInfo, 64> InfoList;
+static SmallVector<PragmaTaffoInfo,1048> InfoList;
 
 
 class TaffoPragmaVisitor
@@ -80,11 +81,13 @@ public:
     
     //looking in the list if this variable has been annotated by the user
     for(PragmaTaffoInfo info : InfoList){
-      if(info.ID.compare(Vname)==0 && info.funName.compare(Fname)==0){
+      if(!info.used && info.ID.compare(Vname)==0 && info.funName.compare(Fname)==0){
         Declaration->addAttr(AnnotateAttr::CreateImplicit(Declaration->getASTContext(),
                                                  info.annotation));
+        info.used=true;
       }
     }
+
     
     // The return value indicates whether we want the visitation to proceed.
     // Return false to stop the traversal of the AST.
@@ -98,9 +101,12 @@ public:
     std::string Fname = Declaration->getQualifiedNameAsString();    
     //looking in the list if this variable has been annotated by the user
     for(PragmaTaffoInfo info : InfoList){
-      if(info.ID.compare(Fname)==0 && info.funName.compare("")==0){
+      if(!info.used && info.ID.compare(Fname)==0 && info.funName.compare("")==0){
         Declaration->addAttr(AnnotateAttr::CreateImplicit(Declaration->getASTContext(),
                                                  info.annotation));
+
+        //an annotation can be used just once
+        info.used = true;
       }
     }
     
@@ -168,7 +174,7 @@ public:
 
     //parsing ID
     if (Tok.isNot(tok::identifier)) {
-      PP.Diag(Tok.getLocation(), diag::warn_pragma_missing_argument) << "taffo";
+      PP.Diag(Tok.getLocation(), diag::warn_pragma_expected_identifier) << "taffo";
       return;
     }
     IdentifierInfo *ID = Tok.getIdentifierInfo();
@@ -228,7 +234,21 @@ public:
     }
 
     Info.annotation = parsed;
-    InfoList.push_back(Info);
+    Info.used = false;
+    //std::cout << "Parsed annotation: " << Info.annotation << " on var: " << Info.ID << " --in function: " << Info.funName << "\n";
+
+    //checking whether this variable has already been annotated
+    // we just keep the first annotation
+    bool duplicate = false;
+    for(PragmaTaffoInfo info : InfoList){
+      if(info.ID.compare(Info.ID)==0 && info.funName.compare(Info.funName)==0){
+        //PP.Diag(Tok.getLocation(), diag::warn_pragma_invalid_argument) << "taffo";
+        duplicate= true;
+      }
+    }
+
+    if(!duplicate)  InfoList.push_back(Info);
+
   } 
 };
 
