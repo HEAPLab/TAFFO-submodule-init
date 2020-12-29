@@ -169,8 +169,8 @@ const std::map<const std::string, handler_function> indirectCallFunctions = {
 //        {"__kmpc_omp_task", &handleCallToKmpcOmpTask}
 };
 
-void *handleIndirectCall(const Module &m, std::vector<Instruction *> &toDelete, CallInst *curCallInstruction,
-                         const CallSite *curCall, Function *indirectFunction) {
+void handleIndirectCall(const Module &m, std::vector<Instruction *> &toDelete, CallInst *curCallInstruction,
+                        const CallSite *curCall, Function *indirectFunction) {
   indirectCallFunctions.find(indirectFunction->getName())->second(m, toDelete, curCallInstruction, curCall,
                                                                   indirectFunction);
 }
