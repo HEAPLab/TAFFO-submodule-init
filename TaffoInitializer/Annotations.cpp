@@ -30,10 +30,10 @@ void TaffoInitializer::readGlobalAnnotations(Module &m,
       {
         if (ConstantStruct *anno = dyn_cast<ConstantStruct>(annos->getOperand(i)))
         {
-          /*struttura expr (operando 0 contiene expr) :
-            [OpType] operandi :
-            [BitCast] *funzione , [GetElementPtr] *annotazione ,
-            [GetElementPtr] *filename , [Int] linea di codice sorgente) */
+          /* Structure of the expression (ConstantStruct operand #0 is the expression):
+           * [OpType] operand:
+           *   [BitCast] *function, [GetElementPtr] *annotation,
+           *   [GetElementPtr] *filename, [Int] source code line */
           if (ConstantExpr *expr = dyn_cast<ConstantExpr>(anno->getOperand(0)))
           {
             if (expr->getOpcode() == Instruction::BitCast && (functionAnnotation ^ !isa<Function>(expr->getOperand(0))) )
@@ -78,7 +78,7 @@ void TaffoInitializer::readAllLocalAnnotations(llvm::Module &m, MultiValueMap<Va
     readLocalAnnotations(f, t);
     res.insert(res.end(), t.begin(), t.end());
 
-    /* Otherwise dce pass ignore the function
+    /* Otherwise dce pass ignores the function
      * (removed also where it's not required) */
     f.removeFnAttr(Attribute::OptimizeNone);
   }
