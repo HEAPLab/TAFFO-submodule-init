@@ -1,12 +1,12 @@
 # TaffoClangPlugin Dev Guide aka What you need to know besides the User guide
-The plugin adds to Clang two components: a Pragma Handler ( called creatively TaffoPragmaHandler) and a Frontend Plugin (TaffoPragmaAction), which is an extension of a Frontend Action. 
+The plugin adds to Clang two components: a Pragma Handler (called creatively TaffoPragmaHandler) and a Frontend Plugin (TaffoPragmaAction), which is an extension of a Frontend Action. 
 
-## Pragma Handler - Lexer phase
-Pragma are actually just preprocessing directives. Thus when we want to add a pragma to the C language we need to declare an handler for our custom pragma, and then find a way to pass the annotation to the backend. The current way is to save all the annotations in an array, and then reinsert them as attributes.
+## Pragma Handler - Lexer phase [TaffoPLugin, HandlePragma function, line 139]
+Pragma are actually just preprocessing directives. Thus when we want to add a pragma to the C language we need to declare a preprocessing handler for our custom pragma, and then find a way to pass the annotation to the backend (the LLVM IR generated code). The current way is to save all the annotations in an array, and then reinsert them as attributes.
 
-The identifier of our pragma is the string "taffo". During the preprocessing phase of the code all the pragmas that start with "taffo" are passed to the overridden HandlePragma function of our TaffoPragmaHandler, which works in the following way.
+The identifier of our pragma is the string "taffo". During the preprocessing phase all the pragmas that start with "taffo" are passed to the overridden HandlePragma function of our TaffoPragmaHandler class, which makes use of the auxiliary function ParseTaffoValue. It works in the following way.
 
-The current string of code is stored into Tok, while PP.Lex(Tok) is used to move to the next string of code. ParseTaffoValue is just a function which parses the pragma one string at a time, creates a TaffoPragmaInfo and adds it to a global vector. TaffoPragmaInfo is just a container for the parsed pragma. We use the double quotes for the actual annotation(s) to make it parsed all together(what a trick!). 
+The current string of code is stored into Tok,while PP.Lex(Tok) is used to move to the next string of code. The function parses the pragma one string at a time, creates a TaffoPragmaInfo and adds it to a global vector. TaffoPragmaInfo is just a container for the parsed pragma. We use the double quotes for the actual annotation(s) to make them parsed all together(what a trick!). 
 
 They only purpose of allowing multiple annotations is actually to allow the use of macros inside a pragma: after a macro has been converted in the actual string, those double quotes are still present. Let's consider the example:
 
@@ -41,6 +41,26 @@ Anyway, TopLevelDecls aren't our target (they are the Translation Unit declarati
 
 VisitVarDecl checks whether the declared variable has been annotated: if so, it adds the annotation as an attribute. VisitFunctionDecl does the same for functions declarations. Attributes are then handled by Clang through a call to intrinsic function llvm.var.attributes (for local variables and function parameters), or to llvm.global.annotations (for global variables and function declarations). This puts the annotations exactly where the Taffo Initialized pass would expect that with the old syntax (__attribute(annotate("taffo_ann"))), so no change is required to the taffo framework.
 
+
+## How to build the plugin alone to play with it
+(clone and build LLVM 10 and Clang 10)
+    
+    - cd TaffoClangPlugin (wherever it is)
+    
+    - mkdir build
+    
+    - cd build
+    
+    - cmake ..
+    
+    - sudo make install
+    
+    - (navigate to the repo containing your C file enriched with #taffo pragmas, let's say main.c)
+    
+    - clang -c -Xclang -load -Xclang /usr/local/lib/TaffoPlugin.so -Xclang -add-plugin -Xclang taffo-plugin -S -emit-llvm main.c
+
+This will generate LLVM IR enriched with annotations which can be parsed and used by TAFFO to enforce floating point to fixed point optimization.
+
 ## References(Clang 10)
 [Clang AST tutorial](http://swtv.kaist.ac.kr/courses/cs453-fall13/Clang%20tutorial%20v4.pdf)
 
@@ -56,7 +76,7 @@ VisitVarDecl checks whether the declared variable has been annotated: if so, it 
 
 [VarDecl code reference](https://clang.llvm.org/doxygen/classclang_1_1VarDecl.html#details)
 
-[Stringification of macros](https://gcc.gnu.org/onlinedocs/gcc-4.8.5/cpp/Stringification.html)
+[Stringification of macros](https://gcc.gnu.org/onlinedocs/gcc-4.8.5/cpp/Stringification.html) (this is for the gnu compiler, but it works the same way in clang)
 
  
 

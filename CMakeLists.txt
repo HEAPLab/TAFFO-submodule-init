@@ -1,1 +1,2 @@
 add_subdirectory(TaffoInitializer)
+add_subdirectory(TaffoClangPlugin)

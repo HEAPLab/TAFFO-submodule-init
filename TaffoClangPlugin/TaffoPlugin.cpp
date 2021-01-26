@@ -1,27 +1,3 @@
-//===- Attribute.cpp ------------------------------------------------------===//
-//
-// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
-// See https://llvm.org/LICENSE.txt for license information.
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//===----------------------------------------------------------------------===//
-//
-// Example clang plugin which adds an an annotation to file-scope declarations
-// with the 'example' attribute.
-//
-//===----------------------------------------------------------------------===//
-//===- AnnotateFunctions.cpp ----------------------------------------------===//
-//
-// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
-// See https://llvm.org/LICENSE.txt for license information.
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//===----------------------------------------------------------------------===//
-//
-// Example clang plugin which adds an annotation to every function in
-// translation units that start with #pragma enable_annotate.
-//
-//===----------------------------------------------------------------------===//
 #include "clang/AST/ASTContext.h"
 #include "clang/Basic/PragmaKinds.h"
 #include "clang/Basic/TargetInfo.h"
@@ -55,7 +31,7 @@ struct PragmaTaffoInfo{
     bool used;
   };
 
-// 64 annotations is the maximum allowed for a compilation unit
+// 1048 annotations is the maximum allowed for a compilation unit
 static SmallVector<PragmaTaffoInfo,1048> InfoList;
 
 
@@ -68,8 +44,10 @@ public:
   bool VisitVarDecl(VarDecl *Declaration) {
     // For debugging, dumping the AST nodes will show which nodes are being visited
     //Declaration->dump();
-    //getting the name of the variable
+
+    //getting the variable name
     std::string Vname = Declaration->getQualifiedNameAsString();
+
     //getting the function name
     std::string Fname ="";
     auto FD = dyn_cast<FunctionDecl>(Declaration->getDeclContext());
@@ -84,22 +62,23 @@ public:
       if(!info.used && info.ID.compare(Vname)==0 && info.funName.compare(Fname)==0){
         Declaration->addAttr(AnnotateAttr::CreateImplicit(Declaration->getASTContext(),
                                                  info.annotation));
+        //an annotation can be used just once
         info.used=true;
       }
     }
-
-    
     // The return value indicates whether we want the visitation to proceed.
     // Return false to stop the traversal of the AST.
     return true;
   }
 
+
   bool VisitFunctionDecl(FunctionDecl *Declaration) {
     // For debugging, dumping the AST nodes will show which nodes are being visited
     // Declaration->dump();
+
     //getting the function name
     std::string Fname = Declaration->getQualifiedNameAsString();    
-    //looking in the list if this variable has been annotated by the user
+    //looking in the list if this function declaration has been annotated by the user
     for(PragmaTaffoInfo info : InfoList){
       if(!info.used && info.ID.compare(Fname)==0 && info.funName.compare("")==0){
         Declaration->addAttr(AnnotateAttr::CreateImplicit(Declaration->getASTContext(),
@@ -109,7 +88,6 @@ public:
         info.used = true;
       }
     }
-    
     // The return value indicates whether we want the visitation to proceed.
     // Return false to stop the traversal of the AST.
     return true;
@@ -166,6 +144,7 @@ public:
     Token Tok;
     //passing through the "taffo" string
     PP.Lex(Tok);
+
     ParseTaffoValue(PP, Tok);
 }
 
@@ -199,7 +178,9 @@ public:
     }
     std::string ann = Tok.getLiteralData();
     ann = ann.substr(0, ann.find("\n"));  
+    //in indicates whether we are reading a char inside two matching double quotes, or outside
     bool in = false;
+    //the parsed annotation
     std::string parsed = "";
     int pos =0;
     while (pos < ann.size()){
@@ -208,24 +189,26 @@ public:
       }
       else{
         if(!in && ann[pos] != ' ' ){
+          //if we read some chars outside double quotes, the annotation is not valid
           PP.Diag(Tok.getLocation(), diag::warn_pragma_invalid_argument) << "taffo";
           return;
         }
         if(in){
+          //characters inside double quotes form the annotation
           parsed.push_back(ann[pos]);
         }
       }
       pos++;
     }
+    //if a quote is not closed, the annotation is not valid
     if (in){
       PP.Diag(Tok.getLocation(), diag::warn_pragma_invalid_argument) << "taffo";
       return;
     }
-    
     PP.Lex(Tok);
 
 
-    // extra tokens at the end of taffo pragma are added in case macros are used
+    // extra tokens at the end of taffo pragma are added in case macros are used, and must be parsed and thrown away as well
     std::string extra = "";
     if (Tok.isNot(tok::eod)) {
       while (Tok.isNot(tok::eod)){
@@ -235,19 +218,17 @@ public:
 
     Info.annotation = parsed;
     Info.used = false;
-    //std::cout << "Parsed annotation: " << Info.annotation << " on var: " << Info.ID << " --in function: " << Info.funName << "\n";
 
     //checking whether this variable has already been annotated
-    // we just keep the first annotation
-    bool duplicate = false;
+    // we always just keep the first annotation
     for(PragmaTaffoInfo info : InfoList){
       if(info.ID.compare(Info.ID)==0 && info.funName.compare(Info.funName)==0){
-        //PP.Diag(Tok.getLocation(), diag::warn_pragma_invalid_argument) << "taffo";
-        duplicate= true;
+        PP.Diag(Tok.getLocation(), diag::warn_pragma_invalid_argument) << "taffo";
+        return;
       }
     }
 
-    if(!duplicate)  InfoList.push_back(Info);
+    InfoList.push_back(Info);
 
   } 
 };
