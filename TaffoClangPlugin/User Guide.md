@@ -20,14 +20,14 @@ This guide presents the syntax and semantics of TAFFO pragmas, as well as some e
 Taffo pragmas follow a specific syntax depending on the pragma target (non terminals are indicated with capital letters):
 
     - S            -> #pragma taffo LOCALVAR|GLOBALVAR|FUNCTIONPAR|FUNCTIONDECL  
-    - LOCALVAR     -> ID FUNNAME ("[ANNOTATION](https://github.com/HEAPLab/TAFFO/blob/develop/doc/AnnotationSyntax.md)")+
-    - GLOBALVAR    -> ID ("[ANNOTATION](https://github.com/HEAPLab/TAFFO/blob/develop/doc/AnnotationSyntax.md)")+
-    - FUNCTIONPAR  -> ID FUNNAME ("[ANNOTATION](https://github.com/HEAPLab/TAFFO/blob/develop/doc/AnnotationSyntax.md)")+
-    - FUNCTIONDECL -> ID ("[ANNOTATION](https://github.com/HEAPLab/TAFFO/blob/develop/doc/AnnotationSyntax.md)")+
+    - LOCALVAR     -> ID FUNNAME ("ANNOTATION")+
+    - GLOBALVAR    -> ID ("ANNOTATION")+
+    - FUNCTIONPAR  -> ID FUNNAME ("ANNOTATION")+
+    - FUNCTIONDECL -> ID ("ANNOTATION")+
     - ID           -> STRING
     - FUNNAME      -> STRING
     - STRING       -> ([A-Z][a-z][0-9] [_])+
-    - ANNOTATION follows the general TAFFO syntax for annotation specified in the link.
+    - [ANNOTATION](https://github.com/HEAPLab/TAFFO/blob/develop/doc/AnnotationSyntax.md) follows the general TAFFO syntax for annotation specified in the link.
  
  When the syntax is not respected, a warning is generated, and the annotation is ignored. So a wrong formatted syntax does not lead to a rejection of Clang to compile the code (as it may be expected). This complies with the general behaviour of pragmas.
  
@@ -45,19 +45,19 @@ Taffo pragmas follow a specific syntax depending on the pragma target (non termi
 ## Notes
 Being a directive, the Taffo pragma cannot be produced as the result of macro expansion (because macro expansion are preprocessing directives as well). To declare a pragma inside a macro, write (e.g. annotating variable id in main):
 
-'''C
+'''cpp
  _Pragma ("taffo id main  \"example_annotation\"").
-'''C
+'''cpp
 
 Likewise, to use a macro ( or some macros) inside a pragma, we need the following workaround (let's say we are annotating the variable image inside the main function with a macro string):
 
-'''C
+'''cpp
 #define ANNOTATION_RGBPIXEL         "struct[scalar(range(0,255)),scalar(range(0,255)),scalar(range(0,255)),void,scalar(range(0,1))]"
 #define ANNOTATION_RGBIMAGE         "struct[void,void," ANNOTATION_RGBPIXEL "]"
 #define SUB(x) _Pragma (#x)
 #define DO_PRAGMA(x) SUB(x) 
 DO_PRAGMA(taffo image main ANNOTATION_RGBIMAGE)
-'''C
+'''cpp
 
 
 The DO_PRAGMA workaround works also in the first case, i.e. declaring a pragma inside a macro, and it's the only way to declare, inside a macro, a pragma which in turn uses a macro inside itself.
@@ -65,11 +65,10 @@ The DO_PRAGMA workaround works also in the first case, i.e. declaring a pragma i
 ## Example code
 Here you can find an example code from the tests with some pragmas used in different ways and with different targets.
 
-'''C
+'''cpp
 #include <stdio.h>
 
 int foo(int, int);
-
 
 #define ANNOTATION(R1,R2) "scalar(range(" R1 "," R2 ) final)"
 #define SUB(x) _Pragma (#x)
@@ -101,14 +100,11 @@ int main(int argc, char *argv[])
   #pragma taffo tmp main "scalar(disabled range(-3000, 3000))" \\this is a valid local variable pragma
   #pragma taffo tmp main "scalar()" \\ this is the second pragma of tmp: this annotation will be ignored
   float tmp;
-
- 
   for (int i=0; i<MAX_N; i++) {
     if (scanf("%f", &tmp) < 1)
       break;
     numbers[n++] = tmp;
   }
-
   #pragma taffo add main "scalar" "()" \\ this is a valid local variable pragma
   float add = 0.0;
   #pragma taffo sub main "scalar""()" \\ this is valid too!
@@ -145,7 +141,7 @@ int foo(float number){
   macro();
   return tmp;
 }
-'''C
+'''cpp
 
 
  

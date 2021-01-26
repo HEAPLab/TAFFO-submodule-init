@@ -1,7 +1,7 @@
 # TaffoClangPlugin Dev Guide aka What you need to know besides the User guide
 The plugin adds to Clang two components: a Pragma Handler (called creatively TaffoPragmaHandler) and a Frontend Plugin (TaffoPragmaAction), which is an extension of a Frontend Action. 
 
-## Pragma Handler - Lexer phase [TaffoPLugin, HandlePragma function, line 139]
+## Pragma Handler - Lexer phase [TaffoPlugin.ccp, HandlePragma function, line 130]
 Pragma are actually just preprocessing directives. Thus when we want to add a pragma to the C language we need to declare a preprocessing handler for our custom pragma, and then find a way to pass the annotation to the backend (the LLVM IR generated code). The current way is to save all the annotations in an array, and then reinsert them as attributes.
 
 The identifier of our pragma is the string "taffo". During the preprocessing phase all the pragmas that start with "taffo" are passed to the overridden HandlePragma function of our TaffoPragmaHandler class, which makes use of the auxiliary function ParseTaffoValue. It works in the following way.
@@ -22,27 +22,28 @@ What gets to ParseTaffoPragma is(double quotes included):
 
 We need then to parse the chopped annotation and throw away all the tokens after the first new line, taking care of ill-formed annotations where some characters are specified outside of double quotes.
 
-Before adding the new info to the vector we check whether the same value has already been annotated: in case so, we do not add the new info to the vector. This forbids multiple taffo pragmas for the same variable.
+Before adding the new info to the vector we check whether the same value has already been annotated: in case so, we do not add the new instances to the vector. This forbids multiple taffo pragmas for the same variable.
 
-After the (pre)processing ends, the pragma is thrown away and doesn't appear anymore in the code to compile.
+When the (pre)processing phase terminates, the pragma is thrown away and doesn't appear anymore in the code to compile.
 
-We need the programmer to specify the target id and funName because pragmas are not bounded to any other piece of code before or after the pragma itself, unlikely pure attributes.
+Note that we need the programmer to specify the target id and funName because pragmas are not bounded to any other piece of code before or after the pragma itself, unlikely pure attributes.
 
-## Frontend Plugin - Parsing phase
-A Frontend Action is an interface which allows the execution of custom actions over the Clang AST. For more information about the AST, please see the references. A PFrontend Plugin is just a Frontend Action with an interesting feature: it allows for parsing command line options. Despite we don't need any command line option in Taffo at the moment, we'll leave the door open for the future: the function ParseArgs simply returns true. 
+## Frontend Plugin - Parsing phase[TaffoPlugin.cpp, createASTConsumer function, line 110]
+A Frontend Action is an interface which allows the execution of custom actions over the Clang AST. For more information about the AST, please see the references. A Frontend Plugin is just a Frontend Action with an interesting feature: it allows for parsing command line options. We add TaffoPragmaAction to the FrontendPluginRegistry(line 238): our plugin will be run on the generated AST. Despite we don't need any command line option in Taffo at the moment, we'll leave the door open for the future: the function ParseArgs simply returns true. 
 
-The purpose of the plugin is to look for all the variable and function declaration which have been annotated in the source code, and readd the annotations. We are looking then for VarDecl and FunctionDecl nodes in the AST, i.e. for nodes which correspond to variable decalarations.
+The general purpose of the plugin is to look for all the variable and function declarations which have been annotated in the source code, and readd the annotations. We are looking then for VarDecl and FunctionDecl nodes in the AST, i.e. for nodes which correspond to variable decalarations.
 
-Practically, TaffoPragmaAction has to take care only to create and implement the ASTConsumer, while executing it is left to the interface. The entry point for the ASTConsumer is HandleTopLevelDecl, which is called on every top level declaration in the AST. 
+Practically, TaffoPragmaAction has to take care only to create the ASTConsumer(TaffoPragmaConsumer class, line 101), while executing it is left to the interface. The entry point for the ASTConsumer is HandleTopLevelDecl(line 106), which is called on every top level declaration in the AST. 
 
-Note that some easy to go plugin implementations provide handleTranslationUnit as entry point (e.g. PrintFunctionNames, in clang/examples). Unfortunately it's not suitable for our plugin since it would cause the ASTConsumer to be called after the generation of the entire AST, and at that time it's not possible anymore to modify the AST as we wish (all the modifications would have no effect, so frustrating!).
+Note that some easy to go plugin implementations provide handleTranslationUnit as entry point (e.g. PrintFunctionNames, in clang/examples). Unfortunately it's not suitable for our plugin since it would cause the ASTConsumer to be called after the generation of the entire AST, and at that time it's not possible anymore to modify the AST as we wish (all the modifications would have no effect, so frustrating!). I hope my time has not been wasted in vain.
 
-Anyway, TopLevelDecls aren't our target (they are the Translation Unit declarations, there is one TopLevelDecl per Translation Unit), so we provide a RecursiveASTVisitor (TaffoPragmaVisitor), which traverses the entire AST, and define a function VisitVarDecl, which is called on every matched VarDecl, and VisitFunctionDecl, which is called on every matched FunctionDecl. 
+## Insertion of annotations[TaffoPlugin.cpp, VisitVarDecl and VisitFunctionDecl functions, lines 44 and 75]
+TopLevelDecls aren't reallly our target (they are the Translation Unit declarations, there is one TopLevelDecl per Translation Unit), so we define a RecursiveASTVisitor (TaffoPragmaVisitor). We can make it traverse the entire AST through the function TraverseDecl. The TaffoPragmaVisitor class define a function VisitVarDecl, which is automatically called by the RecursiveASTVisitor interface on every matched VarDecl, and VisitFunctionDecl, which is called on every matched FunctionDecl. 
 
-VisitVarDecl checks whether the declared variable has been annotated: if so, it adds the annotation as an attribute. VisitFunctionDecl does the same for functions declarations. Attributes are then handled by Clang through a call to intrinsic function llvm.var.attributes (for local variables and function parameters), or to llvm.global.annotations (for global variables and function declarations). This puts the annotations exactly where the Taffo Initialized pass would expect that with the old syntax (__attribute(annotate("taffo_ann"))), so no change is required to the taffo framework.
+VisitVarDecl checks whether the declared variable has been annotated: if so, it adds the annotation as an attribute. VisitFunctionDecl does the same for functions declarations. Attributes are then handled by Clang through a call to intrinsic function llvm.var.attributes (for local variables and function parameters), or to llvm.global.annotations (for global variables and function declarations). This puts the annotations exactly where the Taffo Initialized pass would expect that with the old syntax(__attribute(annotate("taffo_ann"))), so no change is required to the taffo framework.
 
 
-## How to build the plugin alone to play with it
+## How to build the plugin alone ang generate LLVM IR to play with it
 (clone and build LLVM 10 and Clang 10)
     
     - cd TaffoClangPlugin (wherever it is)
