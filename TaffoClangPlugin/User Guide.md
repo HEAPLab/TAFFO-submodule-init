@@ -1,6 +1,6 @@
 ## TaffoClangPlugin User Guide
 The Taffo framework needs some hints to get its job done. The programmer must then place some annotations inside the code, otherwise TAFFO will not work. This plugin allows the C LLVM frontEnd (Clang, https://clang.llvm.org/) to parse these annotations in C programs and get them to the LLVM backend, so that TAFFO can find them in the Initialization pass.
-In particular, these annotations consists of pragmas. Pragmas are a widely used feature to pass to the compiler some information about how to compile a piece of code and are part of the greater category of attributes. For a list of all supported attributes in clang, please refer to https://clang.llvm.org/docs/AttributeReference.html.
+In particular, these annotations are wrapped inside pragmas. Pragmas are a widely used feature to pass to the compiler some information about how to compile a piece of code and are part of the greater category of attributes. For a list of all supported attributes in clang, please refer to https://clang.llvm.org/docs/AttributeReference.html.
 
 TAFFO pragmas can be placed wherever in the code, each pragma on a separate line, whithout any other code on the same line. For better readability, it's recommended to place a pragma just near the piece of code to be annotated (here called "target").
 
