@@ -64,6 +64,9 @@ DO_PRAGMA(taffo image main ANNOTATION_RGBIMAGE)
 
 The DO_PRAGMA workaround works also in the first case, i.e. declaring a pragma inside a macro, and it's the only way to declare, inside a macro, a pragma which in turn uses a macro inside itself.
 
+### Warnings
+You can suppress warnings by passing **-Xplugin -Wno-ignored-pragmas** to taffo command when compiling a file.
+
 ### Example code
 Here you can find an example code from the tests with some pragmas used in different ways and with different targets.
 
