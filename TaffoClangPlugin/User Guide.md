@@ -40,33 +40,34 @@ Just one pragma per target can be written: when there are more than one, just th
 
     - ID      = name of the annotation target (it can be a variable identifier or a function name)
     - FUNNAME = name of the function where ID is declared, and where ID has its scope. 
-      When the target is a function declaration or a global variable, this field must not be specified (obviously they are not declared inside any other function)
+                When the target is a function declaration or a global variable, 
+                this field must not be specified (obviously they are not declared inside any other function)
 
  When the semantics of the annotation does not make sense (i.e. a mispelled id or funName, or the function of id is not the one declared in funName, etc...), unfortunately no warning is generated, and the pragma is ignored (so be careful!).
 
 ### Notes
 Being a directive, the Taffo pragma cannot be produced as the result of macro expansion (because macro expansion are preprocessing directives as well). To declare a pragma inside a macro, write (e.g. annotating variable id in main):
 
-'''cpp
+```c
  _Pragma ("taffo id main  \"example_annotation\"").
-'''
+```
 
 Likewise, to use a macro ( or some macros) inside a pragma, we need the following workaround (let's say we are annotating the variable image inside the main function with a macro string):
 
-'''cpp
+```c
 #define ANNOTATION_RGBPIXEL         "struct[scalar(range(0,255)),scalar(range(0,255)),scalar(range(0,255)),void,scalar(range(0,1))]"
 #define ANNOTATION_RGBIMAGE         "struct[void,void," ANNOTATION_RGBPIXEL "]"
 #define SUB(x) _Pragma (#x)
 #define DO_PRAGMA(x) SUB(x) 
 DO_PRAGMA(taffo image main ANNOTATION_RGBIMAGE)
-'''
+```
 
 The DO_PRAGMA workaround works also in the first case, i.e. declaring a pragma inside a macro, and it's the only way to declare, inside a macro, a pragma which in turn uses a macro inside itself.
 
 ### Example code
 Here you can find an example code from the tests with some pragmas used in different ways and with different targets.
 
-'''cpp
+```c
 #include <stdio.h>
 
 int foo(int, int);
@@ -137,7 +138,7 @@ int foo(float number){
   macro();
   return tmp;
 }
-'''
+```
 
 
  
