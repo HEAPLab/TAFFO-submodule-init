@@ -33,7 +33,7 @@ Taffo pragmas follow a specific syntax depending on the pragma target (non termi
  
  More than one annotation may be specified in double quotes: they are simply parsed together, as if they were a unique annotation. As a special case, the pragma is accepted even if there is no space character between two annotations.
 
- Just one pragma per target can be written: when there are more than one, just the first is considered valid and accepted, whilst the second one will be ignored.
+ Just one pragma per target can be written: when there are more than one, just the first is considered valid and accepted, whilst the second one will be ignored, and a warning is generated.
  
 ## Semantics of TAFFO pragmas
 
@@ -113,7 +113,7 @@ int main(int argc, char *argv[])
   DO_PRAGMA(taffo div main ANNOTATION(-3000,3000)) \\ an example of a macro inside a local variable pragma definition
   float div = 1.0;
   #pragma taffo mul main "scalar" "(")" \\this is not valid, and will be ignored
-  #pragma taffo mul main "scalar()"
+  #pragma taffo mul main "scalar()"\\this is valid
   float mul = 1.0;
 
   for (int i=0; i<n; i++) {

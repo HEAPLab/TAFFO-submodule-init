@@ -30,28 +30,26 @@ typedef struct {
 
 
 int main() {
-	#pragma taffo a main "scalar(disabled range(-3000, 3000))" "extra tokensss"
-	int a;
-	int __attribute((annotate("scalar()"))) b, c1, c2;
+	#pragma taffo
+ 	int a;
+	int b, c1, c2;
 
 	//array examples
-	#pragma taffo array main "pragma array annotation"
 	int array[5];
 
-	int __attribute((annotate("annotate array annotation"))) vector[5];
+	int vector[5];
 	//////////////////////
 	RgbPixel pixel;
 
 	//clang push tests
-	#pragma clang attribute push( __attribute((annotate("clang push annotation"))) , apply_to = variable)
+
 	float push;
 	float push_vector[5];
-  	#pragma clang attribute pop
+
 
 	a = 7;
 	b = 5;
 	int var;
-	DO_PRAGMA(taffo var main "prefix")
 	c1 = foo1(a, b);
 	c2 = foo3(a, b);
 	printf("C1 is: %d\n", c1);
@@ -59,11 +57,9 @@ int main() {
 	return 0;
 }
 
-#pragma taffo foo1 "scalar(disabled range(-4000, 4000))"
-int foo1  (int c, int b) __attribute__((annotate("scalar(range(0, 256))"))) {
+int foo1  (int c, int b){
 	int a = 1;
 	int d = a;
-	gen_perform()
 	return c +b + a;
 }
 

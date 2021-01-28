@@ -16,6 +16,7 @@
 #include "clang/AST/RecursiveASTVisitor.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Frontend/FrontendAction.h"
+#include "clang/Basic/SourceLocation.h"
 
 
 #include <iostream>
@@ -28,6 +29,8 @@ namespace {
       std::string annotation;
       bool used;
   };
+
+  bool suppressWarnings = false;
 
   // 1048 annotations is the maximum allowed for a compilation unit
   static SmallVector<PragmaTaffoInfo,1048> InfoList;
@@ -114,6 +117,11 @@ namespace {
 
     bool ParseArgs(const CompilerInstance &CI,
                    const std::vector<std::string> &args) override {
+      for (unsigned i = 0, e = args.size(); i != e; i++) {
+        if(args[i] == "-Wno-ignored-pragmas"){
+          suppressWarnings = true;
+        }   
+      }
       return true;
     }
 
@@ -129,19 +137,18 @@ namespace {
     TaffoPragmaHandler() : PragmaHandler("taffo") { }
     void HandlePragma(Preprocessor &PP, PragmaIntroducer Introducer,
                       Token &PragmaTok) {
-      Token Tok;
       //passing through the "taffo" string
-      PP.Lex(Tok);
-
-      ParseTaffoValue(PP, Tok);
+      PP.Lex(PragmaTok);
+      ParseTaffoValue(PP, PragmaTok);
     }
 
     static void ParseTaffoValue(Preprocessor &PP, Token &Tok) {
       PragmaTaffoInfo Info;
+      SourceLocation location = Tok.getLocation();
 
       //parsing ID
       if (Tok.isNot(tok::identifier)) {
-        PP.Diag(Tok.getLocation(), diag::warn_pragma_expected_identifier) << "taffo";
+        emitWarning(PP,Tok, "expected identifier");
         return;
       }
       IdentifierInfo *ID = Tok.getIdentifierInfo();
@@ -156,12 +163,25 @@ namespace {
         //this is an annotation for a local variable, funName has been specified
         IdentifierInfo *FunInfo = Tok.getIdentifierInfo();
         Info.funName = FunInfo->getName().str();
+      }
+
+      //checking whether this variable has already been annotated
+      // we always just keep the first annotation
+      for(PragmaTaffoInfo info : InfoList){
+        if(info.ID.compare(Info.ID)==0 && info.funName.compare(Info.funName)==0){
+          emitWarning(PP,Tok, "already annotated target");
+          return;
+        }
+      }
+
+      //if a funName has been specified, we must move through it
+      if(Info.funName.compare("")!=0){
         PP.Lex(Tok);
       }
 
       //parsing the actual annotation
       if (Tok.is(tok::eod)) {
-        PP.Diag(Tok.getLocation(), diag::warn_pragma_missing_argument) << "taffo";
+        emitWarning(PP,Tok, "missing annotation");
         return;
       }
       std::string ann = Tok.getLiteralData();
@@ -178,7 +198,7 @@ namespace {
         else{
           if(!in && ann[pos] != ' ' ){
             //if we read some chars outside double quotes, the annotation is not valid
-            PP.Diag(Tok.getLocation(), diag::warn_pragma_invalid_argument) << "taffo";
+            emitWarning(PP,Tok, "annotation string outside double quotes");
             return;
           }
           if(in){
@@ -188,16 +208,16 @@ namespace {
         }
         pos++;
       }
+
       //if a quote is not closed, the annotation is not valid
       if (in){
-        PP.Diag(Tok.getLocation(), diag::warn_pragma_invalid_argument) << "taffo";
+        emitWarning(PP,Tok, "non matching double quotes");
         return;
       }
       PP.Lex(Tok);
 
 
       // extra tokens at the end of taffo pragma are added in case macros are used, and must be parsed and thrown away as well
-      std::string extra = "";
       if (Tok.isNot(tok::eod)) {
         while (Tok.isNot(tok::eod)){
           PP.Lex(Tok);
@@ -207,18 +227,18 @@ namespace {
       Info.annotation = parsed;
       Info.used = false;
 
-      //checking whether this variable has already been annotated
-      // we always just keep the first annotation
-      for(PragmaTaffoInfo info : InfoList){
-        if(info.ID.compare(Info.ID)==0 && info.funName.compare(Info.funName)==0){
-          PP.Diag(Tok.getLocation(), diag::warn_pragma_invalid_argument) << "taffo";
-          return;
-        }
-      }
-
       InfoList.push_back(Info);
-
     } 
+
+    static void emitWarning(Preprocessor &PP,Token &Tok, std::string message){
+      if(!suppressWarnings){
+        DiagnosticsEngine &D = PP.getDiagnostics();
+        const char *s = message.c_str();
+        unsigned ID = D.getCustomDiagID(DiagnosticsEngine::Warning, "%0 in '#pragma taffo' - ignored [-Wignored-pragmas]");
+        D.Report(Tok.getLocation(), ID) << s;
+      }
+      
+    }
   };
 
 }

@@ -22,14 +22,16 @@ What gets to ParseTaffoPragma is(double quotes included):
 
 We need then to parse the chopped annotation and throw away all the tokens after the first new line, taking care of ill-formed annotations where some characters are specified outside of double quotes.
 
-Before adding the new info to the vector we check whether the same value has already been annotated: in case so, we do not add the new instances to the vector. This forbids multiple taffo pragmas for the same variable.
+Before moving to the actual annotation we check whether the same target has already been annotated: in case so, we emit a warning and stop the parsing. This forbids multiple taffo pragmas for the same target.
 
 When the (pre)processing phase terminates, the pragma is thrown away and doesn't appear anymore in the code to compile.
 
 Note that we need the programmer to specify the target id and funName because pragmas are not bounded to any other piece of code before or after the pragma itself, unlikely pure attributes.
 
+EmitWarning is just a function to generate warnings for syntactically wrong pragmas in a modular way: before doing its job, it checks whether the warning have been suppressed by the user.
+
 ## Frontend Plugin - Parsing phase[TaffoPlugin.cpp, createASTConsumer function, line 110]
-A Frontend Action is an interface which allows the execution of custom actions over the Clang AST. For more information about the AST, please see the references. A Frontend Plugin is just a Frontend Action with an interesting feature: it allows for parsing command line options. We add TaffoPragmaAction to the FrontendPluginRegistry(line 238): our plugin will be run on the generated AST. Despite we don't need any command line option in Taffo at the moment, we'll leave the door open for the future: the function ParseArgs simply returns true. 
+A Frontend Action is an interface which allows the execution of custom actions over the Clang AST. For more information about the AST, please see the references. A Frontend Plugin is just a Frontend Action with an interesting feature: it allows for parsing command line options. We add TaffoPragmaAction to the FrontendPluginRegistry(line 238): our plugin will be run on the generated AST. The only useful command line option (at the moment) is **-Wno-ignored-pragmas**, which can be used to suppress all warnings about syntactically wrong pragmas. If you pass to the plugin any other string, this will be simply ignored.
 
 The general purpose of the plugin is to look for all the variable and function declarations which have been annotated in the source code, and readd the annotations. We are looking then for VarDecl and FunctionDecl nodes in the AST, i.e. for nodes which correspond to variable decalarations.
 
@@ -61,6 +63,10 @@ VisitVarDecl checks whether the declared variable has been annotated: if so, it 
     - clang -c -Xclang -load -Xclang /usr/local/lib/TaffoPlugin.so -Xclang -add-plugin -Xclang taffo-plugin -S -emit-llvm main.c
 
 This will generate LLVM IR enriched with annotations which can be parsed and used by TAFFO to enforce floating point to fixed point optimization.
+
+If we want to generate LLVM IR and suppress warnings, type instead:
+
+	- clang -c -Xclang -load -Xclang /usr/local/lib/TaffoPlugin.so -Xclang -add-plugin -Xclang taffo-plugin -Xclang -plugin-arg-taffo-plugin -Xclang -Wno-ignored-pragmas -S -emit-llvm main.c
 
 ## References(Clang 10)
 [Clang AST tutorial](http://swtv.kaist.ac.kr/courses/cs453-fall13/Clang%20tutorial%20v4.pdf)
