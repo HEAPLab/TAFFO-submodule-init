@@ -1,6 +1,6 @@
 ## TaffoClangPlugin User Guide
-The Taffo framework needs some hints to get its job done. The programmer must then place some annotations inside the code, otherwise TAFFO will not work. This plugin allows the C LLVM frontEnd (Clang, https://clang.llvm.org/) to parse these annotations in C programs and get them to the LLVM backend, so that TAFFO can find them in the Initialization pass.
-In particular, these annotations are wrapped inside pragmas. Pragmas are a widely used feature to pass to the compiler some information about how to compile a piece of code and are part of the greater category of attributes. For a list of all supported attributes in clang, please refer to https://clang.llvm.org/docs/AttributeReference.html.
+The Taffo framework needs some hints to get its job done. The programmer must then place some annotations inside the code, otherwise TAFFO will not work. This plugin allows the C LLVM frontEnd ([Clang](https://clang.llvm.org/)) to parse these annotations in C programs and get them to the LLVM backend, so that TAFFO can find them in the Initialization pass.
+In particular, these annotations are wrapped inside pragmas. Pragmas are a widely used feature to pass to the compiler some information about how to compile a piece of code and are part of the greater category of attributes. [Here](https://clang.llvm.org/docs/AttributeReference.html) you can find a list of all supported attributes in clang. [Here](https://github.com/HEAPLab/TAFFO/blob/develop/doc/AnnotationSyntax.md) you can find the documentation about how to write Taffo annotations.
 
 TAFFO pragmas can be placed wherever in the code, each pragma on a separate line, whithout any other code on the same line. For better readability, it's recommended to place a pragma just near the piece of code to be annotated (here called "target").
 
@@ -28,7 +28,7 @@ Taffo pragmas follow a specific syntax depending on the pragma target (non termi
     - FUNNAME      -> STRING
     - STRING       -> ([A-Z][a-z][0-9] [_])+
     
-[ANNOTATION](https://github.com/HEAPLab/TAFFO/blob/develop/doc/AnnotationSyntax.md) follows the general TAFFO syntax for annotation specified in the link.
+[ANNOTATION](https://github.com/HEAPLab/TAFFO/blob/develop/doc/AnnotationSyntax.md) follows the general TAFFO syntax for annotation specified in the relative documentation.
  
 When the syntax is not respected, a warning is generated, and the annotation is ignored. So a wrong formatted syntax does not lead to a rejection of Clang to compile the code (as it may be expected). This complies with the general behaviour of pragmas.
  
@@ -64,8 +64,8 @@ DO_PRAGMA(taffo image main ANNOTATION_RGBIMAGE)
 
 The DO_PRAGMA workaround works also in the first case, i.e. declaring a pragma inside a macro, and it's the only way to declare, inside a macro, a pragma which in turn uses a macro inside itself.
 
-### Warnings
-You can suppress warnings by passing **-Xplugin -Wno-ignored-pragmas** to taffo command when compiling a file.
+### Suppress Warnings
+You can suppress warnings by passing **-Xplugin -Wno-ignored-pragmas** to the taffo command when compiling a file.
 
 ### Example code
 Here you can find an example code from the tests with some pragmas used in different ways and with different targets.
