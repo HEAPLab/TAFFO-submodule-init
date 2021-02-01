@@ -118,8 +118,8 @@ int foo(int, int);
 #define ANNOTATION(R1,R2) "scalar(range(" R1 "," R2 ) final)"
 #define SUB(x) _Pragma (#x)
 #define DO_PRAGMA(x) SUB(x) 
-\\ these are valid examples of pragmas inside a macro
-\\ and actually the second one is an example of a macro inside a pragma
+// these are valid examples of pragmas inside a macro
+// and actually the second one is an example of a macro inside a pragma
 #define macro() {                                               \
     _Pragma("taffo macro_a foo \"scalar()\"")                   \
     float macro_a = 2.1423;                                     \
@@ -131,30 +131,30 @@ int foo(int, int);
 #define MAX_N (30)
 int main(int argc, char *argv[])
 {
-  #pragma taffo number main "scalar()"  \\ this annotation is accepted(no warning is generated)
-                                        \\ but will not lead to any annotation:
-                                        \\ number is defined in foo , not in main
-  #pragma taffo numbers main "scalar()" \\ this is a valid local variable pragma, and it's the first one for this variable
-                                        \\ this pragma is syntactically and semantically correct
+  #pragma taffo number main "scalar()"  // this annotation is accepted(no warning is generated)
+                                        // but will not lead to any annotation:
+                                        // number is defined in foo , not in main
+  #pragma taffo numbers main "scalar()" // this is a valid local variable pragma, and it's the first one for this variable
+                                        // this pragma is syntactically and semantically correct
   float numbers[MAX_N];
   int n = 0;
-  #pragma taffo tmp main "scalar(disabled range(-3000, 3000))" \\this is a valid local variable pragma
-  #pragma taffo tmp main "scalar()" \\ this is the second pragma of tmp: this annotation will be ignored
+  #pragma taffo tmp main "scalar(disabled range(-3000, 3000))" // this is a valid local variable pragma
+  #pragma taffo tmp main "scalar()" // this is the second pragma of tmp: this annotation will be ignored
   float tmp;
   for (int i=0; i<MAX_N; i++) {
     if (scanf("%f", &tmp) < 1)
       break;
     numbers[n++] = tmp;
   }
-  #pragma taffo add main "scalar" "()" \\ this is a valid local variable pragma
+  #pragma taffo add main "scalar" "()" // this is a valid local variable pragma
   float add = 0.0;
-  #pragma taffo sub main "scalar""()" \\ this is valid too!
-  #pragma taffo sub foo "scalar()" \\ this is valid too, but be careful: you are annotating the variable inside foo function!
+  #pragma taffo sub main "scalar""()" // this is valid too!
+  #pragma taffo sub foo "scalar()" // this is valid too, but be careful: you are annotating the variable inside foo function!
   float sub = 0.0;
-  DO_PRAGMA(taffo div main ANNOTATION(-3000,3000)) \\ an example of a macro inside a local variable pragma definition
+  DO_PRAGMA(taffo div main ANNOTATION(-3000,3000)) // an example of a macro inside a local variable pragma definition
   float div = 1.0;
-  #pragma taffo mul main "scalar" "(")" \\this is not valid, and will be ignored
-  #pragma taffo mul main "scalar()"\\this is valid
+  #pragma taffo mul main "scalar" "(")" // this is not valid, and will be ignored
+  #pragma taffo mul main "scalar()" // this is valid
   float mul = 1.0;
   for (int i=0; i<n; i++) {
     add += numbers[i];
@@ -172,9 +172,9 @@ int main(int argc, char *argv[])
   return 0;
 }
 
-#pragma taffo foo "scalar()" \\ this is a valid function declaration pragma
+#pragma taffo foo "scalar()" // this is a valid function declaration pragma
 int foo(float number){
-  #pragma taffo number foo "scalar()" \\ this is a valid function parameter pragma
+  #pragma taffo number foo "scalar()" // this is a valid function parameter pragma
   
   int sub = 0.0;
   float tmp = number + 1.273646 - sub;
