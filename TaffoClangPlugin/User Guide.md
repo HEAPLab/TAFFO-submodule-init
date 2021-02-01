@@ -18,6 +18,8 @@ This guide presents the syntax and semantics of TAFFO pragmas, as well as some e
 
 ### Syntax of TAFFO pragmas
 Taffo pragmas follow a specific syntax depending on the pragma target:
+
+---
 ##### NAME
              local variable pragma
 ##### SYNOPSIS 
@@ -72,6 +74,7 @@ Taffo pragmas follow a specific syntax depending on the pragma target:
              global variable pragma
 ##### REPORTING BUGS
              Open an issue at https://github.com/HEAPLab/TAFFO
+---
 
 When the syntax is not respected, a warning is generated, and the annotation is ignored. So a wrong formatted syntax does not lead to a rejection of Clang to compile the code (as it may be expected). This complies with the general behaviour of pragmas.
  
