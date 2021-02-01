@@ -18,7 +18,7 @@ This guide presents the syntax and semantics of TAFFO pragmas, as well as some e
 
 ### Syntax of TAFFO pragmas
 Taffo pragmas follow a specific syntax depending on the pragma target:
-#### NAME
+##### NAME
              local variable pragma
 ##### SYNOPSIS 
              #pragma taffo <id> <fun> <"annotation">...
@@ -30,9 +30,9 @@ Taffo pragmas follow a specific syntax depending on the pragma target:
              function parameter pragma
 ##### REPORTING BUGS
              Open an issue at https://github.com/HEAPLab/TAFFO
+---
 
-
-#### NAME
+##### NAME
              global variable pragma
 ##### SYNOPSIS 
              #pragma taffo <id> <"annotation">...
@@ -44,9 +44,9 @@ Taffo pragmas follow a specific syntax depending on the pragma target:
              function declaration pragma
 ##### REPORTING BUGS
              Open an issue at https://github.com/HEAPLab/TAFFO
+---
 
-
-#### NAME
+##### NAME
              function parameter pragma
 ##### SYNOPSIS 
              #pragma taffo <id> <fun> <"annotation">...
@@ -58,9 +58,9 @@ Taffo pragmas follow a specific syntax depending on the pragma target:
              local variable pragma
 ##### REPORTING BUGS
              Open an issue at https://github.com/HEAPLab/TAFFO
+---
 
-
-#### NAME
+##### NAME
              function declaration pragma
 ##### SYNOPSIS 
              #pragma taffo <id> <"annotation">...
