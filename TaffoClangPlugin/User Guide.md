@@ -18,13 +18,12 @@ This guide presents the syntax and semantics of TAFFO pragmas, as well as some e
 
 ### Syntax of TAFFO pragmas
 Taffo pragmas follow a specific syntax depending on the pragma target:
- 
-##### NAME
+#### NAME
              local variable pragma
 ##### SYNOPSIS 
              #pragma taffo <id> <fun> <"annotation">...
 ##### DESCRIPTION
-             Annotate with `annotation`... the variable `id` declared inside function `fun`
+             Annotate with `annotation`... the variable `id` declared inside function `fun`.
 ##### EXAMPLE
              #pragma taffo localVar main "scalar() " "backtracking"
 ##### SEE ALSO 
@@ -32,12 +31,13 @@ Taffo pragmas follow a specific syntax depending on the pragma target:
 ##### REPORTING BUGS
              Open an issue at https://github.com/HEAPLab/TAFFO
 
-##### NAME
+
+#### NAME
              global variable pragma
 ##### SYNOPSIS 
              #pragma taffo <id> <"annotation">...
 ##### DESCRIPTION
-             Annotate with `annotation`... the variable `id` 
+             Annotate with `annotation`... the variable `id`. 
 ##### EXAMPLE
              #pragma taffo globalVar "scalar() " "backtracking"
 ##### SEE ALSO 
@@ -45,12 +45,13 @@ Taffo pragmas follow a specific syntax depending on the pragma target:
 ##### REPORTING BUGS
              Open an issue at https://github.com/HEAPLab/TAFFO
 
-##### NAME
+
+#### NAME
              function parameter pragma
 ##### SYNOPSIS 
              #pragma taffo <id> <fun> <"annotation">...
 ##### DESCRIPTION
-             Annotate with `annotation`... the variable `id` which is a parameter of the function `fun`
+             Annotate with `annotation`... the variable `id` which is a parameter of the function `fun`.
 ##### EXAMPLE
              #pragma taffo fooPar foo "scalar() " "backtracking"
 ##### SEE ALSO 
@@ -58,12 +59,13 @@ Taffo pragmas follow a specific syntax depending on the pragma target:
 ##### REPORTING BUGS
              Open an issue at https://github.com/HEAPLab/TAFFO
 
-##### NAME
+
+#### NAME
              function declaration pragma
 ##### SYNOPSIS 
              #pragma taffo <id> <"annotation">...
 ##### DESCRIPTION
-             Annotate with `annotation`... the function `id` 
+             Annotate with `annotation`... the function `id`. 
 ##### EXAMPLE
              #pragma taffo fooFun "scalar() " "backtracking"
 ##### SEE ALSO 

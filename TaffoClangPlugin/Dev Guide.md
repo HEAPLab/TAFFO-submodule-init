@@ -47,11 +47,11 @@ Note that some easy to go plugin implementations provide handleTranslationUnit a
 ### Warnings
 | Warning message      | Meaning          | Example                   |
 |:--------------------:|:----------------:|:--------------------------|
-| "expected identifier" | The pragma does not have the id | #pragma taffo |
-| "already annotated target" | The target has already been annotated | #pragma taffo var main "scalar()" \ #pragma taffo var main "scalar()" |
-| "expected annotation" | The pragma does not have the annotation | #pragma taffo var main |
-| "annotation string outside double quotes" | The pragma has some string which belongs to the annotation part but it's outside double quotes | #pragma taffo var main "scalar" () |
-| "non matching double quotes" | The pragma has an odd number of double quotes: it's not possible to determine what's part of the annotations and what's not | #pragma taffo var main "scalar" "() |
+| "expected identifier" | The pragma does not have the id. | #pragma taffo |
+| "already annotated target" | The target has already been annotated. | #pragma taffo var main "scalar()" \ #pragma taffo var main "scalar()" |
+| "expected annotation" | The pragma does not have the annotation. | #pragma taffo var main |
+| "annotation string outside double quotes" | The pragma has some string which belongs to the annotation part but it's outside double quotes. | #pragma taffo var main "scalar" () |
+| "non matching double quotes" | The pragma has an odd number of double quotes: it's not possible to determine what's part of the annotations and what's not. | #pragma taffo var main "scalar" "() |
 
 
 
