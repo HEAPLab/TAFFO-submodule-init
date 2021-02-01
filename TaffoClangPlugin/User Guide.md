@@ -25,7 +25,7 @@ Taffo pragmas follow a specific syntax depending on the pragma target:
 ##### SYNOPSIS 
              #pragma taffo <id> <fun> <"annotation">...
 ##### DESCRIPTION
-             Annotate with `annotation`... the variable `id` declared inside function `fun`.
+             Annotate with *annotation* (one or more than one) the variable *id* declared inside function *fun*.
 ##### EXAMPLE
              #pragma taffo localVar main "scalar() " "backtracking"
 ##### SEE ALSO 
@@ -39,7 +39,7 @@ Taffo pragmas follow a specific syntax depending on the pragma target:
 ##### SYNOPSIS 
              #pragma taffo <id> <"annotation">...
 ##### DESCRIPTION
-             Annotate with `annotation`... the variable `id`. 
+             Annotate with *annotation* (one or more than one) the variable *id*. 
 ##### EXAMPLE
              #pragma taffo globalVar "scalar() " "backtracking"
 ##### SEE ALSO 
@@ -53,7 +53,7 @@ Taffo pragmas follow a specific syntax depending on the pragma target:
 ##### SYNOPSIS 
              #pragma taffo <id> <fun> <"annotation">...
 ##### DESCRIPTION
-             Annotate with `annotation`... the variable `id` which is a parameter of the function `fun`.
+             Annotate with *annotation* (one or more than one) the variable *id* which is a parameter of the function *fun*.
 ##### EXAMPLE
              #pragma taffo fooPar foo "scalar() " "backtracking"
 ##### SEE ALSO 
@@ -67,7 +67,7 @@ Taffo pragmas follow a specific syntax depending on the pragma target:
 ##### SYNOPSIS 
              #pragma taffo <id> <"annotation">...
 ##### DESCRIPTION
-             Annotate with `annotation`... the function `id`. 
+             Annotate with *annotation* (one or more than one) the function *id*. 
 ##### EXAMPLE
              #pragma taffo fooFun "scalar() " "backtracking"
 ##### SEE ALSO 
