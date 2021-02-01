@@ -17,7 +17,8 @@ Targets are:
 This guide presents the syntax and semantics of TAFFO pragmas, as well as some examples. To get further information, please refer to the Dev Guide.
 
 ### Syntax of TAFFO pragmas
-Taffo pragmas follow a specific syntax depending on the pragma target:
+Taffo pragmas follow a specific syntax depending on the pragma target. 
+[Annotation](https://github.com/HEAPLab/TAFFO/blob/develop/doc/AnnotationSyntax.md) follows the general TAFFO syntax for annotation specified in the relative documentation.
 
 ---
 ##### NAME
@@ -81,15 +82,8 @@ When the syntax is not respected, a warning is generated, and the annotation is 
 Note that more than one annotation may be specified in double quotes: they are simply parsed together, as if they were a unique annotation. As a special case, the pragma is accepted even if there is no space character between two annotations.
 
 Just one pragma per target can be written: when there are more than one, just the first is considered valid and accepted, whilst the second one will be ignored, and a warning is generated.
- 
-### Semantics of TAFFO pragmas
 
-    - ID      = name of the annotation target (it can be a variable identifier or a function name)
-    - FUNNAME = name of the function where ID is declared, and where ID has its scope. 
-                When the target is a function declaration or a global variable, 
-                this field must not be specified (obviously they are not declared inside any other function)
-
- When the semantics of the annotation does not make sense (i.e. a mispelled id or funName, or the function of id is not the one declared in funName, etc...), unfortunately no warning is generated, and the pragma is ignored. This applies also if we annotate a variable as if it was a function (i.e., without adding the name of function which contains it), so be careful!.
+When the semantics of the annotation does not make sense (i.e. a mispelled 'id' or 'fun', or the function of id is not the one declared in funName, etc...), unfortunately no warning is generated, and the pragma is ignored. As another example, this applies also if we annotate a variable as if it was a function (i.e., without adding the name of function which contains it), so be careful!.
 
 ### Notes
 Being a directive, the Taffo pragma cannot be produced as the result of macro expansion (because macro expansion are preprocessing directives as well). To declare a pragma inside a macro, write (e.g. annotating variable id in main):
@@ -201,7 +195,7 @@ Here you can find a definition of a grammar which generates the pragmas.
     - FUNNAME      -> STRING
     - STRING       -> ([A-Z][a-z][0-9] [_])+
 
-[ANNOTATION](https://github.com/HEAPLab/TAFFO/blob/develop/doc/AnnotationSyntax.md) follows the general TAFFO syntax for annotation specified in the relative documentation.
+
 
 
 
