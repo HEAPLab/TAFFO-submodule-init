@@ -33,7 +33,7 @@ When the preprocessing phase terminates, the pragma is thrown away and doesn't a
 
 Note that we need the programmer to specify the target id and funName because pragmas are not bounded to any other piece of code before or after the pragma itself, unlikely pure attributes.
 
-EmitWarning is just a function to generate warnings for syntactically wrong pragmas in a modular way: before doing its job, it checks whether the warnings have been suppressed by the user.
+EmitWarning is just a function to generate warnings for syntactically wrong pragmas in a modular way (there is an example of a use just some lines ahead): before doing its job, it checks whether the warnings have been suppressed by the user.
 
 ### Frontend Plugin - Parsing phase [TaffoPlugin.cpp, createASTConsumer function, line 97]
 A Frontend Action is an interface which allows the execution of custom actions over the Clang AST. For more information about the AST, please see the references. A Frontend Plugin is just a Frontend Action with an interesting feature: it allows for parsing command line options. We add TaffoPragmaAction to the FrontendPluginRegistry (line 238): our plugin will be run on the generated AST. The only useful command line option (at the moment) is **-Wno-ignored-pragmas**, which can be used to suppress all warnings about syntactically wrong pragmas. For a list of all currently emitted warnings, please refer to the next section. If you pass to the plugin any other string, this will be simply ignored.
@@ -52,9 +52,6 @@ Note that some easy to go plugin implementations provide handleTranslationUnit a
 | "expected annotation" | The pragma does not have the annotation. | #pragma taffo var main |
 | "annotation string outside double quotes" | The pragma has some string which belongs to the annotation part but it's outside double quotes. | #pragma taffo var main "scalar" () |
 | "non matching double quotes" | The pragma has an odd number of double quotes: it's not possible to determine what's part of the annotations and what's not. | #pragma taffo var main "scalar" "() |
-
-
-
 
 ### Insertion of annotations [TaffoPlugin.cpp, VisitVarDecl and VisitFunctionDecl functions, lines 26 and 56]
 TopLevelDecls aren't really our target (they are the Translation Unit declarations, there is one TopLevelDecl per Translation Unit), so we define a RecursiveASTVisitor (TaffoPragmaVisitor). We can make it traverse the entire AST through the function TraverseDecl. The TaffoPragmaVisitor class define a function VisitVarDecl, which is automatically called by the RecursiveASTVisitor interface on every matched VarDecl, and VisitFunctionDecl, which is called on every matched FunctionDecl. 
