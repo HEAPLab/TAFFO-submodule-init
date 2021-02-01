@@ -165,7 +165,7 @@ namespace {
 
       //parsing the actual annotation
       if (Tok.is(tok::eod)) {
-        emitWarning(PP,Tok, "missing annotation");
+        emitWarning(PP,Tok, "expected annotation");
         return;
       }
       std::string ann = Tok.getLiteralData();

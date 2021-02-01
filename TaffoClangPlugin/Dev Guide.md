@@ -36,13 +36,25 @@ Note that we need the programmer to specify the target id and funName because pr
 EmitWarning is just a function to generate warnings for syntactically wrong pragmas in a modular way: before doing its job, it checks whether the warnings have been suppressed by the user.
 
 ### Frontend Plugin - Parsing phase [TaffoPlugin.cpp, createASTConsumer function, line 97]
-A Frontend Action is an interface which allows the execution of custom actions over the Clang AST. For more information about the AST, please see the references. A Frontend Plugin is just a Frontend Action with an interesting feature: it allows for parsing command line options. We add TaffoPragmaAction to the FrontendPluginRegistry (line 238): our plugin will be run on the generated AST. The only useful command line option (at the moment) is **-Wno-ignored-pragmas**, which can be used to suppress all warnings about syntactically wrong pragmas. If you pass to the plugin any other string, this will be simply ignored.
+A Frontend Action is an interface which allows the execution of custom actions over the Clang AST. For more information about the AST, please see the references. A Frontend Plugin is just a Frontend Action with an interesting feature: it allows for parsing command line options. We add TaffoPragmaAction to the FrontendPluginRegistry (line 238): our plugin will be run on the generated AST. The only useful command line option (at the moment) is **-Wno-ignored-pragmas**, which can be used to suppress all warnings about syntactically wrong pragmas. For a list of all currently emitted warnings, please refer to the next section. If you pass to the plugin any other string, this will be simply ignored.
 
 The general purpose of the plugin is to look for all the variable and function declarations which have been annotated in the source code, and readd the annotations. We are looking then for VarDecl and FunctionDecl nodes in the AST, i.e. for nodes which correspond to variable and function declarations.
 
 Practically, TaffoPragmaAction has to take care only to create the ASTConsumer (TaffoPragmaConsumer class, line 80), while executing it is left to the interface. The entry point for the ASTConsumer is HandleTopLevelDecl (line ), 82which is called on every top level declaration in the AST. 
 
 Note that some easy to go plugin implementations provide handleTranslationUnit as entry point (e.g. PrintFunctionNames, in clang/examples). Unfortunately it's not suitable for our plugin since it would cause the ASTConsumer to be called after the generation of the entire AST, and at that time it's not possible anymore to modify the AST as we wish (all the modifications would have no effect, so frustrating!). I hope my time has not been wasted in vain.
+
+### Warnings
+| Warning message      | Meaning          | Example                   |
+|:--------------------:|:----------------:|:--------------------------|
+| "expected identifier" | The pragma does not have the id | #pragma taffo |
+| "already annotated target" | The target has already been annotated | #pragma taffo var main "scalar()" \ #pragma taffo var main "scalar()" |
+| "expected annotation" | The pragma does not have the annotation | #pragma taffo var main |
+| "annotation string outside double quotes" | The pragma has some string which belongs to the annotation part but it's outside double quotes | #pragma taffo var main "scalar" () |
+| "non matching double quotes" | The pragma has an odd number of double quotes: it's not possible to determine what's part of the annotations and what's not | #pragma taffo var main "scalar" "() |
+
+
+
 
 ### Insertion of annotations [TaffoPlugin.cpp, VisitVarDecl and VisitFunctionDecl functions, lines 26 and 56]
 TopLevelDecls aren't really our target (they are the Translation Unit declarations, there is one TopLevelDecl per Translation Unit), so we define a RecursiveASTVisitor (TaffoPragmaVisitor). We can make it traverse the entire AST through the function TraverseDecl. The TaffoPragmaVisitor class define a function VisitVarDecl, which is automatically called by the RecursiveASTVisitor interface on every matched VarDecl, and VisitFunctionDecl, which is called on every matched FunctionDecl. 
