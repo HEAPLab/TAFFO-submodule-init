@@ -209,6 +209,14 @@ void TaffoInitializer::buildConversionQueueForRootValues(
           LLVM_DEBUG(dbgs() << "\n");
 
         unsigned int vdepth = std::min(next->second.backtrackingDepthLeft, next->second.backtrackingDepthLeft - 1);
+        if (vdepth < 2 && isa<StoreInst>(u)) {
+          StoreInst *store = dyn_cast<StoreInst>(u);
+          Type *valueType = store->getValueOperand()->getType();
+          if (valueType->isPointerTy() && valueType->getPointerElementType()->isFloatingPointTy()) {
+            LLVM_DEBUG(dbgs() << "MALLOC'D POINTER HACK\n");
+            vdepth = 2;
+          }
+        }
         if (vdepth > 0) {
           unsigned int udepth = UI->second.backtrackingDepthLeft;
           UI->second.backtrackingDepthLeft = std::max(vdepth, udepth);
