@@ -211,8 +211,11 @@ void TaffoInitializer::buildConversionQueueForRootValues(
         unsigned int vdepth = std::min(next->second.backtrackingDepthLeft, next->second.backtrackingDepthLeft - 1);
         if (vdepth < 2 && isa<StoreInst>(u)) {
           StoreInst *store = dyn_cast<StoreInst>(u);
-          Type *valueType = store->getValueOperand()->getType();
-          if (valueType->isPointerTy() && valueType->getPointerElementType()->isFloatingPointTy()) {
+          Value *valOp = store->getValueOperand();
+          Type *valueType = valOp->getType();
+          if (isa<BitCastInst>(valOp)
+              && valueType->isPointerTy()
+              && valueType->getPointerElementType()->isFloatingPointTy()) {
             LLVM_DEBUG(dbgs() << "MALLOC'D POINTER HACK\n");
             vdepth = 2;
           }
