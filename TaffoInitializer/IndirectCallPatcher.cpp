@@ -18,8 +18,34 @@
 using namespace taffo;
 using namespace llvm;
 
+bool containsOmpTask(llvm::Function * function, int exploreDepth) {
+  for (auto instructionIt = inst_begin(function); instructionIt != inst_end(function); instructionIt++) {
+    if (auto curCallInstruction = dyn_cast<CallInst>(&(*instructionIt))) {
+      auto *curCall = new CallSite(curCallInstruction);
+      llvm::Function *curCallFunction = curCall->getCalledFunction();
+
+      if (curCallFunction->getName().startswith("__kmpc_omp_task")) {
+        return true;
+      }
+      else if (exploreDepth > 0) {
+        if (containsOmpTask(curCallFunction, exploreDepth - 1)) {
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
 void handleKmpcFork(const Module &m, std::vector<Instruction *> &toDelete, CallInst *curCallInstruction,
                     const CallSite *curCall, Function *indirectFunction) {
+  auto microTaskOperand = dyn_cast<ConstantExpr>(curCall->arg_begin() + 2)->getOperand(0);
+  auto microTaskFunction = dyn_cast<Function>(microTaskOperand);
+
+  if (containsOmpTask(microTaskFunction, 1)) {
+    return;
+  }
+
   std::vector<Type *> paramsFunc;
 
   auto functionType = indirectFunction->getFunctionType();
@@ -46,8 +72,6 @@ void handleKmpcFork(const Module &m, std::vector<Instruction *> &toDelete, CallI
 
   BasicBlock *block = BasicBlock::Create(m.getContext(), "main", newF);
 
-  auto microTaskOperand = dyn_cast<ConstantExpr>(curCall->arg_begin() + 2)->getOperand(0);
-  auto microTaskFunction = dyn_cast<Function>(microTaskOperand);
 
   std::vector<Value *> convArgs;
   std::vector<Value *> trampolineArgs;
@@ -95,6 +119,12 @@ void handleKmpcFork(const Module &m, std::vector<Instruction *> &toDelete, CallI
 
 void handleReduce(const Module &m, std::vector<Instruction *> &toDelete, CallInst *curCallInstruction,
                     const CallSite *curCall, Function *indirectFunction) {
+  auto microTaskFunction = dyn_cast<Function>(curCall->arg_begin() + 5);
+
+  if (containsOmpTask(microTaskFunction, 1)) {
+    return;
+  }
+
   std::vector<Type *> paramsFunc;
 
   auto functionType = indirectFunction->getFunctionType();
@@ -117,7 +147,6 @@ void handleReduce(const Module &m, std::vector<Instruction *> &toDelete, CallIns
   BasicBlock *block = BasicBlock::Create(m.getContext(), "main", newF);
 
 
-  auto microTaskFunction = dyn_cast<Function>(curCall->arg_begin() + 5);
 
   std::vector<Value *> convArgs;
   std::vector<Value *> trampolineArgs;
