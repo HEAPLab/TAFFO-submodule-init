@@ -7,15 +7,14 @@
 
 namespace taffo {
 
-    /** Function type for handlers **/
-    using handler_function = void(*)(const llvm::Module &m, std::vector<llvm::Instruction *> &toDelete, llvm::CallInst *curCallInstruction,
-                                     const llvm::CallSite *curCall, llvm::Function *indirectFunction);
+/** Function type for handlers **/
+using handler_function = void (*)(const llvm::Module &m,
+                                  std::vector<llvm::Instruction *> &toDelete,
+                                  llvm::CallInst *curCallInstruction,
+                                  const llvm::CallSite *curCall,
+                                  llvm::Function *indirectFunction);
 
-    /** Latest allocated task name **/
-    extern llvm::Function* allocatedTask;
-
-    void manageIndirectCalls(llvm::Module &m);
-}
+void manageIndirectCalls(llvm::Module &m);
+} // namespace taffo
 
 #endif TAFFO_INDIRECTCALLPATCHER_H
-
