@@ -107,7 +107,11 @@ void TaffoInitializer::setMetadataOfValue(Value *v, ValueInfo& vi)
     if (vi.target.hasValue())
       mdutils::MetadataManager::setTargetMetadata(*inst, vi.target.getValue());
 
-    if (mdutils::InputInfo *ii = dyn_cast<mdutils::InputInfo>(md.get())) {
+    if (auto *ii = dyn_cast<mdutils::InputInfo>(md.get())) {
+      if (inst->getMetadata(OMP_DISABLED_METADATA)) {
+        LLVM_DEBUG(dbgs() << "Blocking conversion for shared variable" << *inst << "\n");
+        ii->IEnableConversion = false;
+      }
       mdutils::MetadataManager::setInputInfoMetadata(*inst, *ii);
     } else if (mdutils::StructInfo *si = dyn_cast<mdutils::StructInfo>(md.get())) {
       mdutils::MetadataManager::setStructInfoMetadata(*inst, *si);
