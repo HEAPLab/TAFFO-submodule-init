@@ -22,7 +22,8 @@ using namespace llvm;
 /// Check recursively whether an unsupported function is called.
 bool containsUnsupportedFunctions(
     const llvm::Function *function,
-    std::unordered_set<Function *> traversedFunctions) {
+    std::unordered_set<Function *> traversedFunctions)
+{
   static const std::vector<std::string> prefixBlocklist{"__kmpc_omp_task",
                                                         "__kmpc_reduce"};
 
@@ -53,7 +54,8 @@ bool containsUnsupportedFunctions(
 /// attach the OMP disabled metadata to the the shared variables.
 void handleKmpcFork(const Module &m, std::vector<Instruction *> &toDelete,
                     CallInst *curCallInstruction, const CallSite *curCall,
-                    Function *indirectFunction) {
+                    Function *indirectFunction)
+{
   auto microTaskOperand =
       dyn_cast<ConstantExpr>(curCall->arg_begin() + 2)->getOperand(0);
   auto microTaskFunction = dyn_cast_or_null<Function>(microTaskOperand);
@@ -167,7 +169,8 @@ const std::map<const std::string, handler_function> indirectCallFunctions = {
 /// Check if the given call is indirect, using the related handler.
 void handleIndirectCall(const Module &m, std::vector<Instruction *> &toDelete,
                         CallInst *curCallInstruction, const CallSite *curCall,
-                        Function *indirectFunction) {
+                        Function *indirectFunction)
+{
   auto indirectCallHandler =
       indirectCallFunctions.find(indirectFunction->getName());
 
@@ -177,7 +180,8 @@ void handleIndirectCall(const Module &m, std::vector<Instruction *> &toDelete,
 }
 
 /// Check indirect calls in the given module, and handle then.
-void taffo::manageIndirectCalls(llvm::Module &m) {
+void taffo::manageIndirectCalls(llvm::Module &m)
+{
   LLVM_DEBUG(dbgs() << "Checking Indirect Calls"
                     << "\n");
 
