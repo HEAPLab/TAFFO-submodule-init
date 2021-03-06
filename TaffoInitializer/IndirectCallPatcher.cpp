@@ -14,13 +14,15 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
+#include <unordered_set>
 
 using namespace taffo;
 using namespace llvm;
 
 /// Check recursively whether an unsupported function is called.
-bool containsUnsupportedFunctions(const llvm::Function *function,
-                                  int exploreDepth) {
+bool containsUnsupportedFunctions(
+    const llvm::Function *function,
+    std::unordered_set<Function *> traversedFunctions) {
   static const std::vector<std::string> prefixBlocklist{"__kmpc_omp_task",
                                                         "__kmpc_reduce"};
 
@@ -34,8 +36,10 @@ bool containsUnsupportedFunctions(const llvm::Function *function,
             return functionName.startswith(prefix);
           })) {
         return true;
-      } else if (exploreDepth > 0) {
-        if (containsUnsupportedFunctions(curCallFunction, exploreDepth - 1)) {
+      } else if (traversedFunctions.find(curCallFunction) ==
+                 traversedFunctions.end()) {
+        traversedFunctions.insert(curCallFunction);
+        if (containsUnsupportedFunctions(curCallFunction, traversedFunctions)) {
           return true;
         }
       }
@@ -61,17 +65,18 @@ void handleKmpcFork(const Module &m, std::vector<Instruction *> &toDelete,
     return;
   }
 
-  if (containsUnsupportedFunctions(microTaskFunction, 2)) {
+  if (containsUnsupportedFunctions(microTaskFunction, {})) {
     LLVM_DEBUG(dbgs() << "Blocking conversion for shared variables in "
                          "unsupported parallel region"
                       << *curCallInstruction << "\n");
 
     auto *constantPointerNull =
         ConstantPointerNull::get(Type::getInt32PtrTy(m.getContext()));
-    MDNode *metadataNode = MDNode::get(
-            m.getContext(), ValueAsMetadata::get(constantPointerNull));
+    MDNode *metadataNode =
+        MDNode::get(m.getContext(), ValueAsMetadata::get(constantPointerNull));
 
-    for (auto *sharedArgument = curCall->arg_begin() + 2; sharedArgument < curCall->arg_end(); sharedArgument++)
+    for (auto *sharedArgument = curCall->arg_begin() + 2;
+         sharedArgument < curCall->arg_end(); sharedArgument++)
       if (auto *sharedVarInstr = dyn_cast<Instruction>(*sharedArgument))
         sharedVarInstr->setMetadata(OMP_DISABLED_METADATA, metadataNode);
   };
