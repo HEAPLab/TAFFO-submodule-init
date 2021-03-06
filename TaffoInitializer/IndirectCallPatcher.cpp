@@ -19,8 +19,10 @@ using namespace taffo;
 using namespace llvm;
 
 /// Check recursively whether an unsupported function is called.
-bool containsUnsupportedFunctions(llvm::Function *function, int exploreDepth) {
-  std::vector<std::string> prefixBlocklist{"__kmpc_omp_task"};
+bool containsUnsupportedFunctions(const llvm::Function *function,
+                                  int exploreDepth) {
+  static const std::vector<std::string> prefixBlocklist{"__kmpc_omp_task",
+                                                        "__kmpc_reduce"};
 
   for (auto instructionIt = inst_begin(function);
        instructionIt != inst_end(function); instructionIt++) {
@@ -42,30 +44,48 @@ bool containsUnsupportedFunctions(llvm::Function *function, int exploreDepth) {
   return false;
 }
 
-
-/// Handle the __kmpc_fork_call, by replacing the indirect call with a direct call to the function.
-/// In case an unsupported function is called, be conservative and keep the indirect function.
+/// Handle the __kmpc_fork_call replacing the indirect call with a direct call.
+/// In case an unsupported function is called, keep the indirect function and
+/// attach the OMP disabled metadata to the the shared variables.
 void handleKmpcFork(const Module &m, std::vector<Instruction *> &toDelete,
                     CallInst *curCallInstruction, const CallSite *curCall,
                     Function *indirectFunction) {
   auto microTaskOperand =
       dyn_cast<ConstantExpr>(curCall->arg_begin() + 2)->getOperand(0);
-  auto microTaskFunction = dyn_cast<Function>(microTaskOperand);
+  auto microTaskFunction = dyn_cast_or_null<Function>(microTaskOperand);
 
-  if (containsUnsupportedFunctions(microTaskFunction, 2)) {
-    LLVM_DEBUG(dbgs() << "Blocking the following conversion for unsupported functions"
+  if (microTaskFunction == nullptr) {
+    LLVM_DEBUG(dbgs() << "Blocking the following conversion for failed "
+                         "dyn_cast on the OpenMP microTask"
                       << *curCallInstruction << "\n");
     return;
   }
+
+  if (containsUnsupportedFunctions(microTaskFunction, 2)) {
+    LLVM_DEBUG(dbgs() << "Blocking conversion for shared variables in "
+                         "unsupported parallel region"
+                      << *curCallInstruction << "\n");
+
+    auto *constantPointerNull =
+        ConstantPointerNull::get(Type::getInt32PtrTy(m.getContext()));
+    MDNode *metadataNode = MDNode::get(
+            m.getContext(), ValueAsMetadata::get(constantPointerNull));
+
+    for (auto *sharedArgument = curCall->arg_begin() + 2; sharedArgument < curCall->arg_end(); sharedArgument++)
+      if (auto *sharedVarInstr = dyn_cast<Instruction>(*sharedArgument))
+        sharedVarInstr->setMetadata(OMP_DISABLED_METADATA, metadataNode);
+  };
 
   std::vector<Type *> paramsFunc;
 
   auto functionType = indirectFunction->getFunctionType();
 
   auto params = functionType->params();
-  // Copy the first two params directly from the functionType since they fixed internal OpenMP parameters
+  // Copy the first two params directly from the functionType since they fixed
+  // internal OpenMP parameters
   copy_n(params.begin(), 2, back_inserter(paramsFunc));
-  // Skip the third argument (outlined function) and copy the dynamic arguments' types from the call
+  // Skip the third argument (outlined function) and copy the dynamic arguments'
+  // types from the call
   for (auto i = 3; i < curCall->getNumArgOperands(); i++)
     paramsFunc.push_back(curCall->getArgOperand(i)->getType());
 
@@ -77,32 +97,36 @@ void handleKmpcFork(const Module &m, std::vector<Instruction *> &toDelete,
       Function::Create(trampolineFunctionType, indirectFunction->getLinkage(),
                        trampolineFunctionName, indirectFunction->getParent());
 
-  // Shift back the argument name to set to take into account the skipped third argument
+  // Shift back the argument name since the third argument is skipped
   for (auto i = 3; i < curCall->getNumArgOperands(); i++) {
-    trampolineFunction->getArg(i - 1)->setName(curCall->getArgOperand(i)->getName());
+    trampolineFunction->getArg(i - 1)->setName(
+        curCall->getArgOperand(i)->getName());
   }
 
+  BasicBlock *block =
+      BasicBlock::Create(m.getContext(), "main", trampolineFunction);
 
-  BasicBlock *block = BasicBlock::Create(m.getContext(), "main", trampolineFunction);
-
-  // Create the arguments of the trampoline function from the original call, skipping the third
+  // Create the arguments of the trampoline function from the original call,
+  // skipping the third
   std::vector<Value *> trampolineArgs;
   copy_n(curCall->arg_begin(), 2, back_inserter(trampolineArgs));
-  copy(curCall->arg_begin() + 3, curCall->arg_end(), back_inserter(trampolineArgs));
+  copy(curCall->arg_begin() + 3, curCall->arg_end(),
+       back_inserter(trampolineArgs));
 
   // Keep ref to the indirect function, preventing globaldce pass to destroy it
   auto magicBitCast =
       new BitCastInst(indirectFunction, indirectFunction->getType(), "", block);
   ReturnInst::Create(m.getContext(), nullptr, block);
 
-  // Create the arguments of the direct function, extracted from the indirect one
+  // Create the arguments of the direct function, extracted from the indirect
   std::vector<Value *> outlinedArgumentsInsideTrampoline;
   // Create null pointer to patch the internal OpenMP argument
   Value *nullPointer = ConstantPointerNull::get(
-          PointerType::get(Type::getInt32Ty(trampolineFunction->getContext()), 0));
+      PointerType::get(Type::getInt32Ty(trampolineFunction->getContext()), 0));
   outlinedArgumentsInsideTrampoline.push_back(nullPointer);
   outlinedArgumentsInsideTrampoline.push_back(nullPointer);
-  for (auto argIt = trampolineFunction->arg_begin() + 2; argIt < trampolineFunction->arg_end(); argIt++) {
+  for (auto argIt = trampolineFunction->arg_begin() + 2;
+       argIt < trampolineFunction->arg_end(); argIt++) {
     outlinedArgumentsInsideTrampoline.push_back(argIt);
   }
 
@@ -112,7 +136,8 @@ void handleKmpcFork(const Module &m, std::vector<Instruction *> &toDelete,
   outlinedCall->insertAfter(magicBitCast);
 
   // Create the call to the trampoline function after the indirect function
-  CallInst *trampolineCallInstruction = CallInst::Create(trampolineFunction, trampolineArgs);
+  CallInst *trampolineCallInstruction =
+      CallInst::Create(trampolineFunction, trampolineArgs);
   trampolineCallInstruction->setCallingConv(
       curCallInstruction->getCallingConv());
   trampolineCallInstruction->insertBefore(curCallInstruction);
@@ -138,12 +163,13 @@ const std::map<const std::string, handler_function> indirectCallFunctions = {
 void handleIndirectCall(const Module &m, std::vector<Instruction *> &toDelete,
                         CallInst *curCallInstruction, const CallSite *curCall,
                         Function *indirectFunction) {
-  auto indirectCallHandler = indirectCallFunctions.find(indirectFunction->getName());
+  auto indirectCallHandler =
+      indirectCallFunctions.find(indirectFunction->getName());
 
   if (indirectCallHandler != indirectCallFunctions.end())
-    indirectCallHandler->second(m, toDelete, curCallInstruction, curCall, indirectFunction);
+    indirectCallHandler->second(m, toDelete, curCallInstruction, curCall,
+                                indirectFunction);
 }
-
 
 /// Check indirect calls in the given module, and handle then.
 void taffo::manageIndirectCalls(llvm::Module &m) {
@@ -167,7 +193,8 @@ void taffo::manageIndirectCalls(llvm::Module &m) {
     }
   }
 
-  // Delete the saved instructions in a separate loop to avoid conflicts in the iterator
+  // Delete the saved instructions in a separate loop to avoid conflicts in the
+  // iterator
   for (auto inst : toDelete) {
     inst->eraseFromParent();
   }
