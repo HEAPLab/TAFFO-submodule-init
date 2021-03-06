@@ -60,12 +60,10 @@ void handleKmpcFork(const Module &m, std::vector<Instruction *> &toDelete,
       dyn_cast<ConstantExpr>(curCall->arg_begin() + 2)->getOperand(0);
   auto microTaskFunction = dyn_cast_or_null<Function>(microTaskOperand);
 
-  if (microTaskFunction == nullptr) {
-    LLVM_DEBUG(dbgs() << "Blocking the following conversion for failed "
-                         "dyn_cast on the OpenMP microTask"
-                      << *curCallInstruction << "\n");
-    return;
-  }
+  assert(
+          microTaskFunction != nullptr &&
+          "The microtask function must be present in the __kmpc_fork_call as a "
+          "third argument");
 
   if (containsUnsupportedFunctions(microTaskFunction, {})) {
     LLVM_DEBUG(dbgs() << "Blocking conversion for shared variables in "
