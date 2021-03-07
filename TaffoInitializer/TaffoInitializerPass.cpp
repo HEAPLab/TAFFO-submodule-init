@@ -515,14 +515,13 @@ Function* TaffoInitializer::createFunctionAndQueue(llvm::CallSite *call, ConvQue
   LLVM_DEBUG(dbgs() << "Create function from " << oldF->getName() << " to " << newF->getName() << "\n");
   LLVM_DEBUG(dbgs() << "  callsite instr " << *call->getInstruction() << " [" << call->getInstruction()->getFunction()->getName() << "]\n");
   for (int i=0; oldArgumentI != oldF->arg_end() ; oldArgumentI++, newArgumentI++, i++) {
-    Value *callOperand = call->getInstruction()->getOperand(i);
-
     auto user_begin = newArgumentI->user_begin();
     if (user_begin == newArgumentI->user_end()) {
-      LLVM_DEBUG(dbgs() << "  Arg nr. " << i << " skipped, callOperand has no valueInfo\n");
+      LLVM_DEBUG(dbgs() << "  Arg nr. " << i << " skipped, value has no uses\n");
       continue;
     }
 
+    Value *callOperand = call->getInstruction()->getOperand(i);
     Value *allocaOfArgument = user_begin->getOperand(1);
     if (!isa<AllocaInst>(allocaOfArgument))
       allocaOfArgument = nullptr;
