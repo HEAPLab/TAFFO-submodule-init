@@ -7,13 +7,8 @@
 
 namespace taffo {
 
-/** Function type for handlers **/
-using handler_function = void (*)(const llvm::Module &m,
-                                  std::vector<llvm::Instruction *> &toDelete,
-                                  llvm::CallInst *curCallInstruction,
-                                  const llvm::CallSite *curCall,
-                                  llvm::Function *indirectFunction);
-
+/// Check whether indirect calls are present in the given module, and patch them with dedicated trampoline calls.
+/// The trampolines enable subsequent passes to better analyze the indirect calls.
 void manageIndirectCalls(llvm::Module &m);
 } // namespace taffo
 
