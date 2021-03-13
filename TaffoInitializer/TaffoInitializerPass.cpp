@@ -1,7 +1,5 @@
-#include "TaffoInitializerPass.h"
-#include "IndirectCallPatcher.h"
-#include "Metadata.h"
-#include "TypeUtils.h"
+#include <climits>
+#include <cmath>
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
@@ -19,8 +17,10 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
-#include <climits>
-#include <cmath>
+#include "IndirectCallPatcher.h"
+#include "Metadata.h"
+#include "TaffoInitializerPass.h"
+#include "TypeUtils.h"
 
 using namespace llvm;
 using namespace taffo;

@@ -1,9 +1,9 @@
 #ifndef TAFFO_INDIRECTCALLPATCHER_H
 #define TAFFO_INDIRECTCALLPATCHER_H
 
+#include <list>
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/Dominators.h"
-#include <list>
 
 namespace taffo {
 
