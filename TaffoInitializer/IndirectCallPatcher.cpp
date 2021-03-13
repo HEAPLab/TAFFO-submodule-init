@@ -1,8 +1,4 @@
-#include "IndirectCallPatcher.h"
-
-#include "Metadata.h"
-#include "TaffoInitializerPass.h"
-#include "TypeUtils.h"
+#include <unordered_set>
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
@@ -14,7 +10,10 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
-#include <unordered_set>
+#include "IndirectCallPatcher.h"
+#include "Metadata.h"
+#include "TaffoInitializerPass.h"
+#include "TypeUtils.h"
 
 using namespace taffo;
 using namespace llvm;
