@@ -158,16 +158,20 @@ void handleKmpcFork(const Module &m, std::vector<Instruction *> &toDelete,
                     << *trampolineCallInstruction << "\n");
 }
 
-/// Map to keep track of the handled indirect functions.
-const std::map<const std::string, handler_function> indirectCallFunctions = {
-    {"__kmpc_fork_call", &handleKmpcFork},
-};
-
-/// Check if the given call is indirect, using the related handler.
+/// Check if the given call is indirect and handle it with the dedicated handler.
 void handleIndirectCall(const Module &m, std::vector<Instruction *> &toDelete,
                         CallInst *curCallInstruction, const CallSite *curCall,
                         Function *indirectFunction)
 {
+  using handler_function = void (*)(const llvm::Module &m,
+                                    std::vector<llvm::Instruction *> &toDelete,
+                                    llvm::CallInst *curCallInstruction,
+                                    const llvm::CallSite *curCall,
+                                    llvm::Function *indirectFunction);
+  const static std::map<const std::string, handler_function> indirectCallFunctions = {
+          {"__kmpc_fork_call", &handleKmpcFork},
+  };
+
   auto indirectCallHandler =
       indirectCallFunctions.find(indirectFunction->getName());
 
@@ -176,7 +180,7 @@ void handleIndirectCall(const Module &m, std::vector<Instruction *> &toDelete,
                                 indirectFunction);
 }
 
-/// Check indirect calls in the given module, and handle then.
+/// Check the indirect calls in the given module, and handle them with handleIndirectCall().
 void taffo::manageIndirectCalls(llvm::Module &m)
 {
   LLVM_DEBUG(dbgs() << "Checking Indirect Calls"
