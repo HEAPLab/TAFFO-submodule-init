@@ -7,8 +7,8 @@ add_llvm_library(${SELF} OBJECT BUILDTREE_ONLY
   IndirectCallPatcher.cpp
 
   ADDITIONAL_HEADERS
-  AnnotationParser.h
   TaffoInitializerPass.h
+  AnnotationParser.h
   IndirectCallPatcher.h
 )
 target_link_libraries(obj.${SELF} PUBLIC
