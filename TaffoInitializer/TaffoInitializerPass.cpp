@@ -1,21 +1,24 @@
-#include <cmath>
 #include <climits>
-#include "llvm/Pass.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/InstIterator.h"
-#include "llvm/IR/InstrTypes.h"
-#include "llvm/ADT/SmallPtrSet.h"
+#include <cmath>
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/Support/Debug.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/InstIterator.h"
+#include "llvm/IR/InstrTypes.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Module.h"
+#include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
-#include <llvm/Transforms/Utils/ValueMapper.h>
-#include <llvm/Transforms/Utils/Cloning.h>
+#include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/Transforms/Utils/ValueMapper.h"
+#include "IndirectCallPatcher.h"
+#include "Metadata.h"
 #include "TaffoInitializerPass.h"
 #include "TypeUtils.h"
 #include "Metadata.h"
@@ -42,6 +45,8 @@ llvm::cl::opt<bool> ManualFunctionCloning("manualclone",
 bool TaffoInitializer::runOnModule(Module &m)
 {
   DEBUG_WITH_TYPE(DEBUG_ANNOTATION, printAnnotatedObj(m));
+
+  manageIndirectCalls(m);
 
   ConvQueueT local;
   ConvQueueT global;
@@ -105,7 +110,11 @@ void TaffoInitializer::setMetadataOfValue(Value *v, ValueInfo& vi)
     if (vi.target.hasValue())
       mdutils::MetadataManager::setTargetMetadata(*inst, vi.target.getValue());
 
-    if (mdutils::InputInfo *ii = dyn_cast<mdutils::InputInfo>(md.get())) {
+    if (auto *ii = dyn_cast<mdutils::InputInfo>(md.get())) {
+      if (inst->getMetadata(OMP_DISABLED_METADATA)) {
+        LLVM_DEBUG(dbgs() << "Blocking conversion for shared variable" << *inst << "\n");
+        ii->IEnableConversion = false;
+      }
       mdutils::MetadataManager::setInputInfoMetadata(*inst, *ii);
     } else if (mdutils::StructInfo *si = dyn_cast<mdutils::StructInfo>(md.get())) {
       mdutils::MetadataManager::setStructInfoMetadata(*inst, *si);
@@ -210,6 +219,17 @@ void TaffoInitializer::buildConversionQueueForRootValues(
           LLVM_DEBUG(dbgs() << "\n");
 
         unsigned int vdepth = std::min(next->second.backtrackingDepthLeft, next->second.backtrackingDepthLeft - 1);
+        if (vdepth < 2 && isa<StoreInst>(u)) {
+          StoreInst *store = dyn_cast<StoreInst>(u);
+          Value *valOp = store->getValueOperand();
+          Type *valueType = valOp->getType();
+          if (isa<BitCastInst>(valOp)
+              && valueType->isPointerTy()
+              && valueType->getPointerElementType()->isFloatingPointTy()) {
+            LLVM_DEBUG(dbgs() << "MALLOC'D POINTER HACK\n");
+            vdepth = 2;
+          }
+        }
         if (vdepth > 0) {
           unsigned int udepth = UI->second.backtrackingDepthLeft;
           UI->second.backtrackingDepthLeft = std::max(vdepth, udepth);
@@ -498,8 +518,14 @@ Function* TaffoInitializer::createFunctionAndQueue(llvm::CallSite *call, ConvQue
   LLVM_DEBUG(dbgs() << "Create function from " << oldF->getName() << " to " << newF->getName() << "\n");
   LLVM_DEBUG(dbgs() << "  callsite instr " << *call->getInstruction() << " [" << call->getInstruction()->getFunction()->getName() << "]\n");
   for (int i=0; oldArgumentI != oldF->arg_end() ; oldArgumentI++, newArgumentI++, i++) {
+    auto user_begin = newArgumentI->user_begin();
+    if (user_begin == newArgumentI->user_end()) {
+      LLVM_DEBUG(dbgs() << "  Arg nr. " << i << " skipped, value has no uses\n");
+      continue;
+    }
+
     Value *callOperand = call->getInstruction()->getOperand(i);
-    Value *allocaOfArgument = newArgumentI->user_begin()->getOperand(1);
+    Value *allocaOfArgument = user_begin->getOperand(1);
     if (!isa<AllocaInst>(allocaOfArgument))
       allocaOfArgument = nullptr;
     
