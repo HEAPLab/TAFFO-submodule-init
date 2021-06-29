@@ -1,5 +1,5 @@
 #include <limits>
-#include "llvm/IR/CallSite.h"
+#include "CallSiteVersions.h"
 #include "llvm/Pass.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Constants.h"
@@ -62,7 +62,7 @@ struct TaffoInitializer : public llvm::ModulePass {
 						       std::shared_ptr<mdutils::MDInfo> user_mdi,
 						       std::shared_ptr<mdutils::MDInfo> used_mdi);
   void generateFunctionSpace(ConvQueueT& vals, ConvQueueT& global, llvm::SmallPtrSet<llvm::Function *, 10> &callTrace);
-  llvm::Function *createFunctionAndQueue(llvm::CallSite *call, ConvQueueT& vals, ConvQueueT& global, std::vector<llvm::Value*> &convQueue);
+  llvm::Function *createFunctionAndQueue(CallSite *call, ConvQueueT& vals, ConvQueueT& global, std::vector<llvm::Value*> &convQueue);
   void printConversionQueue(ConvQueueT& vals);
   void removeAnnotationCalls(ConvQueueT& vals);
   

@@ -421,7 +421,7 @@ void TaffoInitializer::generateFunctionSpace(ConvQueueT& vals,
     Value *v = VVI->first;
     if (!(isa<CallInst>(v) || isa<InvokeInst>(v)))
       continue;
-    CallSite *call = new CallSite(v);
+    CallSite *call = dyn_cast<CallSite>(v);
     
     Function *oldF = call->getCalledFunction();
     if (!oldF) {
@@ -444,10 +444,10 @@ void TaffoInitializer::generateFunctionSpace(ConvQueueT& vals,
     enabledFunctions.insert(newF);
 
     //Attach metadata
-    MDNode *newFRef = MDNode::get(call->getInstruction()->getContext(),ValueAsMetadata::get(newF));
-    MDNode *oldFRef = MDNode::get(call->getInstruction()->getContext(),ValueAsMetadata::get(oldF));
+    MDNode *newFRef = MDNode::get(call->getContext(),ValueAsMetadata::get(newF));
+    MDNode *oldFRef = MDNode::get(call->getContext(),ValueAsMetadata::get(oldF));
 
-    call->getInstruction()->setMetadata(ORIGINAL_FUN_METADATA, oldFRef);
+    call->setMetadata(ORIGINAL_FUN_METADATA, oldFRef);
     if (MDNode *cloned = oldF->getMetadata(CLONED_FUN_METADATA)) {
       cloned = cloned->concatenate(cloned, newFRef);
       oldF->setMetadata(CLONED_FUN_METADATA, cloned);
@@ -487,7 +487,7 @@ void TaffoInitializer::generateFunctionSpace(ConvQueueT& vals,
 }
 
 
-Function* TaffoInitializer::createFunctionAndQueue(llvm::CallSite *call, ConvQueueT& vals, ConvQueueT& global, std::vector<llvm::Value*> &convQueue)
+Function* TaffoInitializer::createFunctionAndQueue(CallSite *call, ConvQueueT& vals, ConvQueueT& global, std::vector<llvm::Value*> &convQueue)
 {
   LLVM_DEBUG(dbgs() << "***** begin " << __PRETTY_FUNCTION__ << "\n");
   
@@ -516,7 +516,7 @@ Function* TaffoInitializer::createFunctionAndQueue(llvm::CallSite *call, ConvQue
   oldArgumentI = oldF->arg_begin();
   newArgumentI = newF->arg_begin();
   LLVM_DEBUG(dbgs() << "Create function from " << oldF->getName() << " to " << newF->getName() << "\n");
-  LLVM_DEBUG(dbgs() << "  callsite instr " << *call->getInstruction() << " [" << call->getInstruction()->getFunction()->getName() << "]\n");
+  LLVM_DEBUG(dbgs() << "  callsite instr " << *call << " [" << call->getFunction()->getName() << "]\n");
   for (int i=0; oldArgumentI != oldF->arg_end() ; oldArgumentI++, newArgumentI++, i++) {
     auto user_begin = newArgumentI->user_begin();
     if (user_begin == newArgumentI->user_end()) {
@@ -524,7 +524,7 @@ Function* TaffoInitializer::createFunctionAndQueue(llvm::CallSite *call, ConvQue
       continue;
     }
 
-    Value *callOperand = call->getInstruction()->getOperand(i);
+    Value *callOperand = call->getOperand(i);
     Value *allocaOfArgument = user_begin->getOperand(1);
     if (!isa<AllocaInst>(allocaOfArgument))
       allocaOfArgument = nullptr;

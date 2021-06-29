@@ -4,6 +4,7 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
+#include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/CommandLine.h"
@@ -55,6 +56,7 @@ void handleKmpcFork(const Module &m, std::vector<Instruction *> &toDelete,
                     CallInst *curCallInstruction, const CallSite *curCall,
                     Function *indirectFunction)
 {
+
   auto microTaskOperand =
       dyn_cast<ConstantExpr>(curCall->arg_begin() + 2)->getOperand(0);
   auto microTaskFunction = dyn_cast_or_null<Function>(microTaskOperand);
@@ -160,13 +162,13 @@ void handleKmpcFork(const Module &m, std::vector<Instruction *> &toDelete,
 
 /// Check if the given call is indirect and handle it with the dedicated handler.
 void handleIndirectCall(const Module &m, std::vector<Instruction *> &toDelete,
-                        CallInst *curCallInstruction, const CallSite *curCall,
+                        CallInst *curCallInstruction, const CallBase *curCall,
                         Function *indirectFunction)
 {
   using handler_function = void (*)(const llvm::Module &m,
                                     std::vector<llvm::Instruction *> &toDelete,
                                     llvm::CallInst *curCallInstruction,
-                                    const llvm::CallSite *curCall,
+                                    const CallSite *curCall,
                                     llvm::Function *indirectFunction);
   const static std::map<const std::string, handler_function> indirectCallFunctions = {
           {"__kmpc_fork_call", &handleKmpcFork}
@@ -192,11 +194,11 @@ void taffo::manageIndirectCalls(llvm::Module &m)
     for (auto instructionIt = inst_begin(curFunction);
          instructionIt != inst_end(curFunction); instructionIt++) {
       if (auto curCallInstruction = dyn_cast<CallInst>(&(*instructionIt))) {
-        auto *curCall = new CallSite(curCallInstruction);
-        llvm::Function *curCallFunction = curCall->getCalledFunction();
+
+        llvm::Function *curCallFunction = curCallInstruction->getCalledFunction();
 
         if (curCallFunction) {
-          handleIndirectCall(m, toDelete, curCallInstruction, curCall,
+          handleIndirectCall(m, toDelete, curCallInstruction, dyn_cast<CallBase>(curCallInstruction),
                              curCallFunction);
         }
       }

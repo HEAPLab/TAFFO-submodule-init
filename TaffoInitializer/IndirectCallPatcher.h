@@ -2,7 +2,7 @@
 #define TAFFO_INDIRECTCALLPATCHER_H
 
 #include <list>
-#include "llvm/IR/CallSite.h"
+#include "CallSiteVersions.h"
 #include "llvm/IR/Dominators.h"
 
 namespace taffo {
