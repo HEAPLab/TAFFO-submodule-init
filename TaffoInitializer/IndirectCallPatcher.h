@@ -12,4 +12,4 @@ namespace taffo {
 void manageIndirectCalls(llvm::Module &m);
 } // namespace taffo
 
-#endif TAFFO_INDIRECTCALLPATCHER_H
+#endif // TAFFO_INDIRECTCALLPATCHER_H
