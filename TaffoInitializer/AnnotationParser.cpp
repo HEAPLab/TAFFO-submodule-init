@@ -279,7 +279,7 @@ bool AnnotationParser::expect(std::string kw)
   error = "Expected " + kw + " at character index " + std::to_string((int)(sstream.tellg())-1);
   if (next == '\0')
     return false;
-  int i = 0;
+  size_t i = 0;
   while (i < kw.size() && next != '\0' && next == kw[i]) {
     i++;
     sstream >> next;

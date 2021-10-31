@@ -92,7 +92,7 @@ void handleKmpcFork(const Module &m, std::vector<Instruction *> &toDelete,
   copy_n(params.begin(), 2, back_inserter(paramsFunc));
   // Skip the third argument (outlined function) and copy the dynamic arguments'
   // types from the call
-  for (auto i = 3; i < curCall->getNumArgOperands(); i++)
+  for (unsigned i = 3; i < curCall->getNumArgOperands(); i++)
     paramsFunc.push_back(curCall->getArgOperand(i)->getType());
 
   // Create the new function with the parsed types and signature
@@ -104,7 +104,7 @@ void handleKmpcFork(const Module &m, std::vector<Instruction *> &toDelete,
                        trampolineFunctionName, indirectFunction->getParent());
 
   // Shift back the argument name since the third argument is skipped
-  for (auto i = 3; i < curCall->getNumArgOperands(); i++) {
+  for (unsigned i = 3; i < curCall->getNumArgOperands(); i++) {
     trampolineFunction->getArg(i - 1)->setName(
         curCall->getArgOperand(i)->getName());
   }
