@@ -48,6 +48,7 @@ struct TaffoInitializer : public llvm::ModulePass {
   TaffoInitializer(): ModulePass(ID) { }
   bool runOnModule(llvm::Module &M) override;
   
+  llvm::Function *findStartingPointFunctionGlobal(llvm::Module &M);
   void readGlobalAnnotations(llvm::Module &m, ConvQueueT& res, bool functionAnnotation = false);
   void readLocalAnnotations(llvm::Function &f, ConvQueueT& res);
   void readAllLocalAnnotations(llvm::Module &m, ConvQueueT& res);

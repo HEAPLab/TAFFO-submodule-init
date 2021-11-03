@@ -53,6 +53,12 @@ bool TaffoInitializer::runOnModule(Module &m)
   readAllLocalAnnotations(m, local);
   readGlobalAnnotations(m, global, true);
   readGlobalAnnotations(m, global, false);
+
+  Function *startingPoint = findStartingPointFunctionGlobal(m);
+  if (startingPoint) {
+    LLVM_DEBUG(dbgs() << "Found starting point using global __taffo_vra_starting_function: " << startingPoint->getName() << "\n");
+    mdutils::MetadataManager::setStartingPoint(*startingPoint);
+  }
   
   ConvQueueT rootsa;
   rootsa.insert(rootsa.end(), global.begin(), global.end());
